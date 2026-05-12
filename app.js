@@ -514,7 +514,6 @@ function playBeep(frequency = 1000, duration = 150, volume = 0.05) {
 
   oscillator.type = "sine";
   oscillator.frequency.value = frequency;
-
   gainNode.gain.value = volume;
 
   oscillator.connect(gainNode);
