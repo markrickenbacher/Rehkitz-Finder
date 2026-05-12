@@ -5,6 +5,8 @@ const startTrackingBtn = document.getElementById("startTrackingBtn");
 const requestOrientationBtn = document.getElementById("requestOrientationBtn");
 const testSoundBtn = document.getElementById("testSoundBtn");
 const centerMapBtn = document.getElementById("centerMapBtn");
+const calibrateLeftBtn = document.getElementById("calibrateLeftBtn");
+const calibrateRightBtn = document.getElementById("calibrateRightBtn");
 
 const scanStatus = document.getElementById("scanStatus");
 const permissionStatus = document.getElementById("permissionStatus");
@@ -18,6 +20,7 @@ const hint = document.getElementById("hint");
 const reader = document.getElementById("reader");
 const arrow = document.getElementById("arrow");
 const arrowGlow = document.getElementById("arrowGlow");
+const directionModeText = document.getElementById("directionModeText");
 
 let map;
 let userMarker = null;
@@ -36,6 +39,12 @@ let currentHeading = null;
 let targetReachedBeepPlayed = false;
 let nearTargetBeepPlayed = false;
 let audioContext = null;
+let headingOffset = loadHeadingOffset();
+
+const recentPositions = [];
+const MAX_RECENT_POSITIONS = 6;
+const MIN_MOVEMENT_FOR_TRACK_HEADING_METERS = 4;
+const DEFAULT_CENTER = [47.3769, 8.5417];
 
 initMap();
 bindEvents();
@@ -56,7 +65,7 @@ function registerServiceWorker() {
 }
 
 function initMap() {
-  map = L.map("map").setView([47.3769, 8.5417], 16);
+  map = L.map("map").setView(DEFAULT_CENTER, 16);
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
@@ -72,6 +81,8 @@ function bindEvents() {
   requestOrientationBtn.addEventListener("click", requestOrientationPermission);
   testSoundBtn.addEventListener("click", () => playBeep(880, 180, 0.05));
   centerMapBtn.addEventListener("click", () => fitMapToAvailablePoints(true));
+  calibrateLeftBtn.addEventListener("click", () => adjustHeadingOffset(-10));
+  calibrateRightBtn.addEventListener("click", () => adjustHeadingOffset(10));
 
   window.addEventListener("deviceorientationabsolute", handleOrientation, true);
   window.addEventListener("deviceorientation", handleOrientation, true);
@@ -82,6 +93,8 @@ function updateStaticUI() {
   headingText.textContent = "–";
   bearingText.textContent = "–";
   currentText.textContent = "–";
+  directionModeText.textContent = "–";
+  applyArrowColor("rgb(59, 130, 246)");
 
   if (targetCoords) {
     targetText.textContent = `${targetCoords.lat.toFixed(6)}, ${targetCoords.lng.toFixed(6)}`;
@@ -198,6 +211,7 @@ function clearTarget() {
   targetText.textContent = "–";
   distanceText.textContent = "–";
   bearingText.textContent = "–";
+  directionModeText.textContent = "–";
   proximityStatus.textContent = "Noch kein Ziel aktiv.";
   proximityStatus.style.color = "";
   hint.textContent = "Bitte QR-Code scannen, um ein neues Ziel zu setzen.";
@@ -208,7 +222,7 @@ function clearTarget() {
   if (currentCoords) {
     map.setView([currentCoords.lat, currentCoords.lng], 18);
   } else {
-    map.setView([47.3769, 8.5417], 16);
+    map.setView(DEFAULT_CENTER, 16);
   }
 }
 
@@ -251,7 +265,11 @@ function startLocationTracking() {
         lat: position.coords.latitude,
         lng: position.coords.longitude,
         accuracy: position.coords.accuracy,
+        speed: position.coords.speed,
+        timestamp: position.timestamp,
       };
+
+      pushRecentPosition(currentCoords);
 
       currentText.textContent =
         `${currentCoords.lat.toFixed(6)}, ${currentCoords.lng.toFixed(6)} (±${Math.round(currentCoords.accuracy)} m)`;
@@ -270,6 +288,18 @@ function startLocationTracking() {
       timeout: 10000,
     }
   );
+}
+
+function pushRecentPosition(coords) {
+  recentPositions.push({
+    lat: coords.lat,
+    lng: coords.lng,
+    timestamp: coords.timestamp || Date.now(),
+  });
+
+  if (recentPositions.length > MAX_RECENT_POSITIONS) {
+    recentPositions.shift();
+  }
 }
 
 async function requestOrientationPermission() {
@@ -372,6 +402,7 @@ function updateNavigation() {
 
     distanceText.textContent = "–";
     bearingText.textContent = "–";
+    directionModeText.textContent = "–";
     updateTargetLine();
     return;
   }
@@ -393,10 +424,15 @@ function updateNavigation() {
   distanceText.textContent = formatDistance(distance);
   bearingText.textContent = `${Math.round(targetBearing)}°`;
 
+  const headingSource = getBestHeadingSource();
+  const effectiveHeading = headingSource ? headingSource.heading : null;
+
+  directionModeText.textContent = headingSource ? headingSource.label : "Kein Heading";
+
   const rotation =
-    currentHeading === null
+    effectiveHeading === null
       ? targetBearing
-      : normalizeDegrees(targetBearing - currentHeading);
+      : normalizeDegrees(targetBearing - effectiveHeading + headingOffset);
 
   arrow.style.transform = `translate(-50%, -76%) rotate(${rotation}deg)`;
 
@@ -405,16 +441,62 @@ function updateNavigation() {
   updateProximityText(distance);
   updateTargetLine();
 
-  if (currentHeading === null) {
+  if (!headingSource) {
     hint.textContent =
-      "Kompass nicht verfügbar. Distanz und Karte helfen weiterhin bei der Orientierung.";
+      "Noch keine verlässliche Bewegungs- oder Kompassrichtung verfügbar. Nutze vorerst Karte und Distanz.";
+  } else if (headingSource.type === "gps-track") {
+    hint.textContent =
+      `Pfeil nutzt Bewegungsrichtung aus GPS-Verlauf (${Math.round(effectiveHeading)}°).`;
   } else if (distance <= 3) {
     hint.textContent = "Ziel erreicht.";
   } else {
-    hint.textContent = "Pfeil zeigt in die Richtung, in die du gehen solltest.";
+    hint.textContent = `Pfeil nutzt Kompassrichtung (${Math.round(effectiveHeading)}°).`;
   }
 
   handleProximityBeeps(distance);
+}
+
+function getBestHeadingSource() {
+  const trackHeading = calculateTrackHeadingFromRecentPositions();
+
+  if (trackHeading !== null) {
+    return {
+      type: "gps-track",
+      label: "GPS-Bewegung",
+      heading: trackHeading,
+    };
+  }
+
+  if (currentHeading !== null) {
+    return {
+      type: "Kompass",
+      label: "Kompass",
+      heading: currentHeading,
+    };
+  }
+
+  return null;
+}
+
+function calculateTrackHeadingFromRecentPositions() {
+  if (recentPositions.length < 2) return null;
+
+  const first = recentPositions[0];
+  const last = recentPositions[recentPositions.length - 1];
+
+  const movedDistance = haversineDistance(first.lat, first.lng, last.lat, last.lng);
+
+  if (movedDistance < MIN_MOVEMENT_FOR_TRACK_HEADING_METERS) {
+    return null;
+  }
+
+  return calculateBearing(first.lat, first.lng, last.lat, last.lng);
+}
+
+function adjustHeadingOffset(delta) {
+  headingOffset = normalizeDegrees(headingOffset + delta);
+  saveHeadingOffset(headingOffset);
+  updateNavigation();
 }
 
 function updateProximityText(distance) {
@@ -646,4 +728,16 @@ function loadSavedTarget() {
   } catch {
     return null;
   }
+}
+
+function saveHeadingOffset(offset) {
+  localStorage.setItem("rehkitz-heading-offset", String(offset));
+}
+
+function loadHeadingOffset() {
+  const raw = localStorage.getItem("rehkitz-heading-offset");
+  if (raw === null) return 0;
+
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
