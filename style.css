@@ -7,8 +7,6 @@
   --muted: #94a3b8;
   --blue: rgb(59, 130, 246);
   --red: rgb(239, 68, 68);
-  --green: rgb(34, 197, 94);
-  --yellow: rgb(245, 158, 11);
   --shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
   --radius: 18px;
 }
@@ -72,7 +70,6 @@ body {
 
 .grid {
   display: grid;
-  grid-template-columns: 1fr;
   gap: 16px;
 }
 
