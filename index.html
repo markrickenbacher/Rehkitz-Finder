@@ -48,9 +48,7 @@
             <button id="stopScanBtn" class="secondary" disabled>
               Scanner stoppen
             </button>
-            <button id="clearTargetBtn" class="ghost">
-              Ziel löschen
-            </button>
+            <button id="clearTargetBtn" class="ghost">Ziel löschen</button>
           </div>
 
           <div id="reader" class="reader hidden"></div>
@@ -67,6 +65,8 @@
               Kompass freigeben
             </button>
             <button id="testSoundBtn" class="ghost">Ton testen</button>
+            <button id="calibrateLeftBtn" class="ghost">Pfeil -10°</button>
+            <button id="calibrateRightBtn" class="ghost">Pfeil +10°</button>
           </div>
           <div id="permissionStatus" class="info-box">
             Standort und Kompass sind noch nicht aktiv.
@@ -99,6 +99,10 @@
               <div class="stat">
                 <span>Eigenes Heading</span>
                 <strong id="headingText">–</strong>
+              </div>
+              <div class="stat">
+                <span>Richtungsmodus</span>
+                <strong id="directionModeText">–</strong>
               </div>
               <div class="stat">
                 <span>Zielkoordinaten</span>
