@@ -1,5 +1,6 @@
 const startScanBtn = document.getElementById("startScanBtn");
 const stopScanBtn = document.getElementById("stopScanBtn");
+const clearTargetBtn = document.getElementById("clearTargetBtn");
 const startTrackingBtn = document.getElementById("startTrackingBtn");
 const requestOrientationBtn = document.getElementById("requestOrientationBtn");
 const testSoundBtn = document.getElementById("testSoundBtn");
@@ -34,6 +35,7 @@ let currentCoords = null;
 let currentHeading = null;
 let targetReachedBeepPlayed = false;
 let nearTargetBeepPlayed = false;
+let audioContext = null;
 
 initMap();
 bindEvents();
@@ -42,15 +44,11 @@ updateStaticUI();
 restoreTargetIfAvailable();
 
 function registerServiceWorker() {
-  if (!("serviceWorker" in navigator)) {
-    console.warn("Service Worker wird von diesem Browser nicht unterstützt.");
-    return;
-  }
+  if (!("serviceWorker" in navigator)) return;
 
   window.addEventListener("load", async () => {
     try {
       await navigator.serviceWorker.register("./service-worker.js");
-      console.log("Service Worker erfolgreich registriert.");
     } catch (error) {
       console.error("Service Worker Registrierung fehlgeschlagen:", error);
     }
@@ -69,6 +67,7 @@ function initMap() {
 function bindEvents() {
   startScanBtn.addEventListener("click", startScanner);
   stopScanBtn.addEventListener("click", stopScanner);
+  clearTargetBtn.addEventListener("click", clearTarget);
   startTrackingBtn.addEventListener("click", startLocationTracking);
   requestOrientationBtn.addEventListener("click", requestOrientationPermission);
   testSoundBtn.addEventListener("click", () => playBeep(880, 180, 0.05));
@@ -86,8 +85,10 @@ function updateStaticUI() {
 
   if (targetCoords) {
     targetText.textContent = `${targetCoords.lat.toFixed(6)}, ${targetCoords.lng.toFixed(6)}`;
+    proximityStatus.textContent = "Gespeichertes Ziel aktiv.";
   } else {
     targetText.textContent = "–";
+    proximityStatus.textContent = "Noch kein Ziel aktiv.";
   }
 }
 
@@ -98,7 +99,6 @@ function restoreTargetIfAvailable() {
   fitMapToAvailablePoints(true);
   scanStatus.textContent =
     `Gespeichertes Ziel geladen: ${targetCoords.lat.toFixed(6)}, ${targetCoords.lng.toFixed(6)}`;
-  proximityStatus.textContent = "Gespeichertes Ziel aktiv.";
 }
 
 async function startScanner() {
@@ -173,6 +173,45 @@ async function onScanSuccess(decodedText) {
   await stopScanner();
 }
 
+function clearTarget() {
+  targetCoords = null;
+  targetReachedBeepPlayed = false;
+  nearTargetBeepPlayed = false;
+
+  localStorage.removeItem("rehkitz-target");
+
+  if (targetMarker) {
+    map.removeLayer(targetMarker);
+    targetMarker = null;
+  }
+
+  if (targetRadiusCircle) {
+    map.removeLayer(targetRadiusCircle);
+    targetRadiusCircle = null;
+  }
+
+  if (lineToTarget) {
+    map.removeLayer(lineToTarget);
+    lineToTarget = null;
+  }
+
+  targetText.textContent = "–";
+  distanceText.textContent = "–";
+  bearingText.textContent = "–";
+  proximityStatus.textContent = "Noch kein Ziel aktiv.";
+  proximityStatus.style.color = "";
+  hint.textContent = "Bitte QR-Code scannen, um ein neues Ziel zu setzen.";
+  scanStatus.textContent = "Ziel gelöscht. Du kannst jetzt neu scannen.";
+  arrow.style.transform = "translate(-50%, -76%) rotate(0deg)";
+  applyArrowColor("rgb(59, 130, 246)");
+
+  if (currentCoords) {
+    map.setView([currentCoords.lat, currentCoords.lng], 18);
+  } else {
+    map.setView([47.3769, 8.5417], 16);
+  }
+}
+
 function parseCoordinates(text) {
   const clean = text.trim();
 
@@ -215,8 +254,7 @@ function startLocationTracking() {
       };
 
       currentText.textContent =
-        `${currentCoords.lat.toFixed(6)}, ${currentCoords.lng.toFixed(6)} ` +
-        `(±${Math.round(currentCoords.accuracy)} m)`;
+        `${currentCoords.lat.toFixed(6)}, ${currentCoords.lng.toFixed(6)} (±${Math.round(currentCoords.accuracy)} m)`;
 
       permissionStatus.textContent = "Standort aktiv.";
       updateUserMarker();
@@ -325,9 +363,11 @@ function updateNavigation() {
     if (!targetCoords) {
       hint.textContent = "Bitte zuerst einen QR-Code mit Zielkoordinaten scannen.";
       proximityStatus.textContent = "Noch kein Ziel aktiv.";
+      proximityStatus.style.color = "";
     } else {
       hint.textContent = "Ziel ist gesetzt. Bitte jetzt den Standort aktivieren.";
       proximityStatus.textContent = "Ziel vorhanden, Position fehlt noch.";
+      proximityStatus.style.color = "#93c5fd";
     }
 
     distanceText.textContent = "–";
@@ -500,31 +540,39 @@ function playBeepSequence(tones) {
   }
 }
 
-function playBeep(frequency = 1000, duration = 150, volume = 0.05) {
+function getAudioContext() {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return null;
 
-  if (!AudioContextClass) {
-    console.warn("Web Audio API wird nicht unterstützt.");
-    return;
+  if (!audioContext || audioContext.state === "closed") {
+    audioContext = new AudioContextClass();
   }
 
-  const audioContext = new AudioContextClass();
-  const oscillator = audioContext.createOscillator();
-  const gainNode = audioContext.createGain();
+  return audioContext;
+}
+
+async function playBeep(frequency = 1000, duration = 150, volume = 0.05) {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  if (ctx.state === "suspended") {
+    await ctx.resume();
+  }
+
+  const oscillator = ctx.createOscillator();
+  const gainNode = ctx.createGain();
 
   oscillator.type = "sine";
   oscillator.frequency.value = frequency;
-  gainNode.gain.value = volume;
+
+  gainNode.gain.setValueAtTime(volume, ctx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration / 1000);
 
   oscillator.connect(gainNode);
-  gainNode.connect(audioContext.destination);
+  gainNode.connect(ctx.destination);
 
   oscillator.start();
-
-  setTimeout(() => {
-    oscillator.stop();
-    audioContext.close();
-  }, duration);
+  oscillator.stop(ctx.currentTime + duration / 1000);
 }
 
 function haversineDistance(lat1, lon1, lat2, lon2) {
