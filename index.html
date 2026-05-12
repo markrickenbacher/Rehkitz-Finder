@@ -2,8 +2,17 @@
 <html lang="de">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>QR GPS Navigator</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <title>Rehkitz Finder</title>
+
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="description" content="QR-basierte GPS-Navigation zum Zielpunkt" />
+
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
 
     <link
       rel="stylesheet"
@@ -14,84 +23,93 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <div class="app">
-      <header class="header">
-        <h1>QR GPS Navigator</h1>
-        <p class="subtitle">QR-Code scannen, Ziel finden, Richtung folgen</p>
+    <div class="app-shell">
+      <header class="hero">
+        <div>
+          <h1>Rehkitz Finder</h1>
+          <p>QR-Code scannen, Zielpunkt erfassen und direkt hin navigieren.</p>
+        </div>
+        <div class="badge">PWA</div>
       </header>
 
-      <main class="main">
-        <section class="card controls">
-          <h2>1. Ziel erfassen</h2>
-          <p>
-            Der QR-Code soll Koordinaten im Format
-            <strong>Breitengrad,Längengrad</strong> enthalten, z. B.
-            <code>47.3769,8.5417</code>
+      <main class="grid">
+        <section class="panel">
+          <h2>Ziel erfassen</h2>
+          <p class="panel-text">
+            Erwartetes QR-Format: <code>47.3769,8.5417</code> oder
+            <code>geo:47.3769,8.5417</code>
           </p>
 
-          <div class="button-row">
-            <button id="startScanBtn">QR-Code scannen</button>
+          <div class="actions">
+            <button id="startScanBtn">QR scannen</button>
             <button id="stopScanBtn" class="secondary" disabled>Scanner stoppen</button>
           </div>
 
           <div id="reader" class="reader hidden"></div>
-          <div id="scanStatus" class="status">Scanner noch nicht gestartet.</div>
+          <div id="scanStatus" class="info-box">Scanner noch nicht gestartet.</div>
         </section>
 
-        <section class="card permissions">
-          <h2>2. Sensoren aktivieren</h2>
-          <div class="button-row">
+        <section class="panel">
+          <h2>Sensoren</h2>
+          <div class="actions">
             <button id="startTrackingBtn">Standort starten</button>
-            <button id="requestOrientationBtn" class="secondary">
-              Kompass freigeben
-            </button>
+            <button id="requestOrientationBtn" class="secondary">Kompass freigeben</button>
+            <button id="testSoundBtn" class="ghost">Ton testen</button>
           </div>
-          <div id="permissionStatus" class="status">
-            Standort und Kompass noch nicht aktiv.
+          <div id="permissionStatus" class="info-box">
+            Standort und Kompass sind noch nicht aktiv.
           </div>
         </section>
 
-        <section class="card navigation-card">
-          <h2>3. Navigation</h2>
-
-          <div class="nav-layout">
-            <div class="compass-wrapper">
-              <div id="compassRing" class="compass-ring">
-                <div id="arrow" class="arrow"></div>
+        <section class="panel nav-panel">
+          <h2>Navigation</h2>
+          <div class="nav-grid">
+            <div class="arrow-zone">
+              <div class="compass">
+                <div class="compass-label north">N</div>
+                <div class="compass-label east">O</div>
+                <div class="compass-label south">S</div>
+                <div class="compass-label west">W</div>
+                <div id="arrowGlow" class="arrow-glow"></div>
+                <div id="arrow" class="big-arrow"></div>
               </div>
-              <div class="bearing-label">
+              <div class="arrow-caption">
                 <span>Richtung zum Ziel</span>
                 <strong id="bearingText">–</strong>
               </div>
             </div>
 
-            <div class="metrics">
-              <div class="metric">
-                <span class="metric-label">Distanz</span>
+            <div class="stats">
+              <div class="stat">
+                <span>Distanz</span>
                 <strong id="distanceText">–</strong>
               </div>
-              <div class="metric">
-                <span class="metric-label">Eigenes Heading</span>
+              <div class="stat">
+                <span>Eigenes Heading</span>
                 <strong id="headingText">–</strong>
               </div>
-              <div class="metric">
-                <span class="metric-label">Zielkoordinaten</span>
+              <div class="stat">
+                <span>Zielkoordinaten</span>
                 <strong id="targetText">–</strong>
               </div>
-              <div class="metric">
-                <span class="metric-label">Aktuelle Position</span>
+              <div class="stat">
+                <span>Aktuelle Position</span>
                 <strong id="currentText">–</strong>
               </div>
             </div>
           </div>
 
-          <div id="hint" class="hint">
-            Scanne zuerst einen QR-Code und aktiviere dann Standort/Kompass.
+          <div id="proximityStatus" class="proximity">Noch kein Ziel aktiv.</div>
+          <div id="hint" class="info-box">
+            Bitte zuerst QR-Code scannen und Standort aktivieren.
           </div>
         </section>
 
-        <section class="card map-card">
-          <h2>Karte</h2>
+        <section class="panel map-panel">
+          <div class="map-header">
+            <h2>Karte</h2>
+            <button id="centerMapBtn" class="secondary small">Auf Ziel zentrieren</button>
+          </div>
           <div id="map"></div>
         </section>
       </main>
