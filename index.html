@@ -9,7 +9,10 @@
     <title>Rehkitz Finder</title>
 
     <meta name="theme-color" content="#0f172a" />
-    <meta name="description" content="QR-basierte GPS-Navigation zum Zielpunkt" />
+    <meta
+      name="description"
+      content="QR-basierte GPS-Navigation zu WGS84-Zielkoordinaten"
+    />
 
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="icons/icon-192.png" />
@@ -42,18 +45,24 @@
 
           <div class="actions">
             <button id="startScanBtn">QR scannen</button>
-            <button id="stopScanBtn" class="secondary" disabled>Scanner stoppen</button>
+            <button id="stopScanBtn" class="secondary" disabled>
+              Scanner stoppen
+            </button>
           </div>
 
           <div id="reader" class="reader hidden"></div>
-          <div id="scanStatus" class="info-box">Scanner noch nicht gestartet.</div>
+          <div id="scanStatus" class="info-box">
+            Scanner noch nicht gestartet.
+          </div>
         </section>
 
         <section class="panel">
           <h2>Sensoren</h2>
           <div class="actions">
             <button id="startTrackingBtn">Standort starten</button>
-            <button id="requestOrientationBtn" class="secondary">Kompass freigeben</button>
+            <button id="requestOrientationBtn" class="secondary">
+              Kompass freigeben
+            </button>
             <button id="testSoundBtn" class="ghost">Ton testen</button>
           </div>
           <div id="permissionStatus" class="info-box">
@@ -108,7 +117,9 @@
         <section class="panel map-panel">
           <div class="map-header">
             <h2>Karte</h2>
-            <button id="centerMapBtn" class="secondary small">Auf Ziel zentrieren</button>
+            <button id="centerMapBtn" class="secondary small">
+              Auf Ziel zentrieren
+            </button>
           </div>
           <div id="map"></div>
         </section>
