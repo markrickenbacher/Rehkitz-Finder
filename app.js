@@ -41,6 +41,22 @@ registerServiceWorker();
 updateStaticUI();
 restoreTargetIfAvailable();
 
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) {
+    console.warn("Service Worker wird von diesem Browser nicht unterstützt.");
+    return;
+  }
+
+  window.addEventListener("load", async () => {
+    try {
+      await navigator.serviceWorker.register("./service-worker.js");
+      console.log("Service Worker erfolgreich registriert.");
+    } catch (error) {
+      console.error("Service Worker Registrierung fehlgeschlagen:", error);
+    }
+  });
+}
+
 function initMap() {
   map = L.map("map").setView([47.3769, 8.5417], 16);
 
@@ -56,7 +72,7 @@ function bindEvents() {
   startTrackingBtn.addEventListener("click", startLocationTracking);
   requestOrientationBtn.addEventListener("click", requestOrientationPermission);
   testSoundBtn.addEventListener("click", () => playBeep(880, 180, 0.05));
-  centerMapBtn.addEventListener("click", fitMapToAvailablePoints);
+  centerMapBtn.addEventListener("click", () => fitMapToAvailablePoints(true));
 
   window.addEventListener("deviceorientationabsolute", handleOrientation, true);
   window.addEventListener("deviceorientation", handleOrientation, true);
@@ -79,7 +95,7 @@ function restoreTargetIfAvailable() {
   if (!targetCoords) return;
 
   updateTargetMarker();
-  fitMapToAvailablePoints();
+  fitMapToAvailablePoints(true);
   scanStatus.textContent =
     `Gespeichertes Ziel geladen: ${targetCoords.lat.toFixed(6)}, ${targetCoords.lng.toFixed(6)}`;
   proximityStatus.textContent = "Gespeichertes Ziel aktiv.";
@@ -136,8 +152,7 @@ async function onScanSuccess(decodedText) {
   const parsed = parseCoordinates(decodedText);
 
   if (!parsed) {
-    scanStatus.textContent =
-      `QR-Code erkannt, aber ungültiges Format: ${decodedText}`;
+    scanStatus.textContent = `QR-Code erkannt, aber ungültiges Format: ${decodedText}`;
     return;
   }
 
@@ -153,7 +168,7 @@ async function onScanSuccess(decodedText) {
 
   updateTargetMarker();
   updateNavigation();
-  fitMapToAvailablePoints();
+  fitMapToAvailablePoints(true);
 
   await stopScanner();
 }
@@ -314,6 +329,7 @@ function updateNavigation() {
       hint.textContent = "Ziel ist gesetzt. Bitte jetzt den Standort aktivieren.";
       proximityStatus.textContent = "Ziel vorhanden, Position fehlt noch.";
     }
+
     distanceText.textContent = "–";
     bearingText.textContent = "–";
     updateTargetLine();
@@ -337,9 +353,10 @@ function updateNavigation() {
   distanceText.textContent = formatDistance(distance);
   bearingText.textContent = `${Math.round(targetBearing)}°`;
 
-  const rotation = currentHeading === null
-    ? targetBearing
-    : normalizeDegrees(targetBearing - currentHeading);
+  const rotation =
+    currentHeading === null
+      ? targetBearing
+      : normalizeDegrees(targetBearing - currentHeading);
 
   arrow.style.transform = `translate(-50%, -76%) rotate(${rotation}deg)`;
 
@@ -381,4 +398,205 @@ function getProximityColor(distance) {
   let green = 130;
   let blue = 246;
 
-  if (distance <= 20
+  if (distance <= 20) {
+    const t = Math.max(0, Math.min(1, (20 - distance) / 20));
+    red = Math.round(59 + (239 - 59) * t);
+    green = Math.round(130 + (68 - 130) * t);
+    blue = Math.round(246 + (68 - 246) * t);
+  }
+
+  return `rgb(${red}, ${green}, ${blue})`;
+}
+
+function applyArrowColor(color) {
+  arrow.style.borderBottomColor = color;
+  arrow.style.filter = `drop-shadow(0 0 18px ${color})`;
+  arrowGlow.style.background = color;
+}
+
+function updateTargetLine() {
+  if (!map) return;
+
+  if (!targetCoords || !currentCoords) {
+    if (lineToTarget) {
+      map.removeLayer(lineToTarget);
+      lineToTarget = null;
+    }
+    return;
+  }
+
+  const latLngs = [
+    [currentCoords.lat, currentCoords.lng],
+    [targetCoords.lat, targetCoords.lng],
+  ];
+
+  if (!lineToTarget) {
+    lineToTarget = L.polyline(latLngs, {
+      color: "#38bdf8",
+      weight: 3,
+      dashArray: "8 8",
+      opacity: 0.8,
+    }).addTo(map);
+  } else {
+    lineToTarget.setLatLngs(latLngs);
+  }
+}
+
+function fitMapToAvailablePoints(forceFit = false) {
+  const points = [];
+
+  if (currentCoords) points.push([currentCoords.lat, currentCoords.lng]);
+  if (targetCoords) points.push([targetCoords.lat, targetCoords.lng]);
+
+  if (points.length === 0) return;
+
+  if (points.length === 1) {
+    if (forceFit) {
+      map.setView(points[0], 18);
+    }
+    return;
+  }
+
+  const bounds = L.latLngBounds(points);
+  map.fitBounds(bounds, { padding: [40, 40] });
+}
+
+function handleProximityBeeps(distance) {
+  if (distance <= 3 && !targetReachedBeepPlayed) {
+    playBeepSequence([
+      { frequency: 1200, duration: 140, volume: 0.06 },
+      { frequency: 1500, duration: 180, volume: 0.06 },
+      { frequency: 1800, duration: 240, volume: 0.06 },
+    ]);
+    targetReachedBeepPlayed = true;
+    nearTargetBeepPlayed = true;
+    return;
+  }
+
+  if (distance <= 10 && !nearTargetBeepPlayed) {
+    playBeepSequence([
+      { frequency: 900, duration: 120, volume: 0.05 },
+      { frequency: 1100, duration: 120, volume: 0.05 },
+    ]);
+    nearTargetBeepPlayed = true;
+  }
+
+  if (distance > 10) {
+    nearTargetBeepPlayed = false;
+  }
+
+  if (distance > 3) {
+    targetReachedBeepPlayed = false;
+  }
+}
+
+function playBeepSequence(tones) {
+  let delay = 0;
+  for (const tone of tones) {
+    setTimeout(() => {
+      playBeep(tone.frequency, tone.duration, tone.volume);
+    }, delay);
+    delay += tone.duration + 80;
+  }
+}
+
+function playBeep(frequency = 1000, duration = 150, volume = 0.05) {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+
+  if (!AudioContextClass) {
+    console.warn("Web Audio API wird nicht unterstützt.");
+    return;
+  }
+
+  const audioContext = new AudioContextClass();
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+
+  oscillator.type = "sine";
+  oscillator.frequency.value = frequency;
+
+  gainNode.gain.value = volume;
+
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+
+  oscillator.start();
+
+  setTimeout(() => {
+    oscillator.stop();
+    audioContext.close();
+  }, duration);
+}
+
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const toRad = (deg) => (deg * Math.PI) / 180;
+
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) ** 2;
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function calculateBearing(lat1, lon1, lat2, lon2) {
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const toDeg = (rad) => (rad * 180) / Math.PI;
+
+  const phi1 = toRad(lat1);
+  const phi2 = toRad(lat2);
+  const lambda1 = toRad(lon1);
+  const lambda2 = toRad(lon2);
+
+  const y = Math.sin(lambda2 - lambda1) * Math.cos(phi2);
+  const x =
+    Math.cos(phi1) * Math.sin(phi2) -
+    Math.sin(phi1) * Math.cos(phi2) * Math.cos(lambda2 - lambda1);
+
+  return normalizeDegrees(toDeg(Math.atan2(y, x)));
+}
+
+function normalizeDegrees(value) {
+  return (value % 360 + 360) % 360;
+}
+
+function formatDistance(distanceMeters) {
+  if (distanceMeters < 1000) {
+    return `${distanceMeters.toFixed(1)} m`;
+  }
+
+  return `${(distanceMeters / 1000).toFixed(2)} km`;
+}
+
+function saveTarget(target) {
+  localStorage.setItem("rehkitz-target", JSON.stringify(target));
+}
+
+function loadSavedTarget() {
+  try {
+    const raw = localStorage.getItem("rehkitz-target");
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if (
+      typeof parsed.lat === "number" &&
+      typeof parsed.lng === "number" &&
+      parsed.lat >= -90 &&
+      parsed.lat <= 90 &&
+      parsed.lng >= -180 &&
+      parsed.lng <= 180
+    ) {
+      return parsed;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
