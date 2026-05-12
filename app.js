@@ -2,9 +2,12 @@ const startScanBtn = document.getElementById("startScanBtn");
 const stopScanBtn = document.getElementById("stopScanBtn");
 const startTrackingBtn = document.getElementById("startTrackingBtn");
 const requestOrientationBtn = document.getElementById("requestOrientationBtn");
+const testSoundBtn = document.getElementById("testSoundBtn");
+const centerMapBtn = document.getElementById("centerMapBtn");
 
 const scanStatus = document.getElementById("scanStatus");
 const permissionStatus = document.getElementById("permissionStatus");
+const proximityStatus = document.getElementById("proximityStatus");
 const distanceText = document.getElementById("distanceText");
 const headingText = document.getElementById("headingText");
 const bearingText = document.getElementById("bearingText");
@@ -13,23 +16,30 @@ const currentText = document.getElementById("currentText");
 const hint = document.getElementById("hint");
 const reader = document.getElementById("reader");
 const arrow = document.getElementById("arrow");
+const arrowGlow = document.getElementById("arrowGlow");
 
 let map;
 let userMarker = null;
 let targetMarker = null;
 let accuracyCircle = null;
+let targetRadiusCircle = null;
+let lineToTarget = null;
 
 let html5QrCode = null;
 let scannerRunning = false;
 
 let watchId = null;
-let targetCoords = null;
+let targetCoords = loadSavedTarget();
 let currentCoords = null;
 let currentHeading = null;
+let targetReachedBeepPlayed = false;
+let nearTargetBeepPlayed = false;
 
 initMap();
 bindEvents();
-updateUI();
+registerServiceWorker();
+updateStaticUI();
+restoreTargetIfAvailable();
 
 function initMap() {
   map = L.map("map").setView([47.3769, 8.5417], 16);
@@ -45,8 +55,34 @@ function bindEvents() {
   stopScanBtn.addEventListener("click", stopScanner);
   startTrackingBtn.addEventListener("click", startLocationTracking);
   requestOrientationBtn.addEventListener("click", requestOrientationPermission);
+  testSoundBtn.addEventListener("click", () => playBeep(880, 180, 0.05));
+  centerMapBtn.addEventListener("click", fitMapToAvailablePoints);
+
   window.addEventListener("deviceorientationabsolute", handleOrientation, true);
   window.addEventListener("deviceorientation", handleOrientation, true);
+}
+
+function updateStaticUI() {
+  distanceText.textContent = "–";
+  headingText.textContent = "–";
+  bearingText.textContent = "–";
+  currentText.textContent = "–";
+
+  if (targetCoords) {
+    targetText.textContent = `${targetCoords.lat.toFixed(6)}, ${targetCoords.lng.toFixed(6)}`;
+  } else {
+    targetText.textContent = "–";
+  }
+}
+
+function restoreTargetIfAvailable() {
+  if (!targetCoords) return;
+
+  updateTargetMarker();
+  fitMapToAvailablePoints();
+  scanStatus.textContent =
+    `Gespeichertes Ziel geladen: ${targetCoords.lat.toFixed(6)}, ${targetCoords.lng.toFixed(6)}`;
+  proximityStatus.textContent = "Gespeichertes Ziel aktiv.";
 }
 
 async function startScanner() {
@@ -54,7 +90,6 @@ async function startScanner() {
 
   reader.classList.remove("hidden");
   scanStatus.textContent = "Starte Kamera…";
-
   html5QrCode = new Html5Qrcode("reader");
 
   try {
@@ -62,8 +97,8 @@ async function startScanner() {
       { facingMode: "environment" },
       {
         fps: 10,
-        qrbox: (viewfinderWidth, viewfinderHeight) => {
-          const size = Math.min(viewfinderWidth, viewfinderHeight) * 0.7;
+        qrbox: (width, height) => {
+          const size = Math.min(width, height) * 0.72;
           return { width: size, height: size };
         },
       },
@@ -74,7 +109,7 @@ async function startScanner() {
     scannerRunning = true;
     startScanBtn.disabled = true;
     stopScanBtn.disabled = false;
-    scanStatus.textContent = "Scanner aktiv. QR-Code ins Kamerabild halten.";
+    scanStatus.textContent = "Scanner aktiv. Bitte QR-Code ins Kamerabild halten.";
   } catch (error) {
     scanStatus.textContent = `Scanner konnte nicht gestartet werden: ${error}`;
     reader.classList.add("hidden");
@@ -102,12 +137,17 @@ async function onScanSuccess(decodedText) {
 
   if (!parsed) {
     scanStatus.textContent =
-      `QR-Code erkannt, aber keine gültigen Koordinaten gefunden: ${decodedText}`;
+      `QR-Code erkannt, aber ungültiges Format: ${decodedText}`;
     return;
   }
 
   targetCoords = parsed;
+  saveTarget(targetCoords);
+  targetReachedBeepPlayed = false;
+  nearTargetBeepPlayed = false;
+
   targetText.textContent = `${targetCoords.lat.toFixed(6)}, ${targetCoords.lng.toFixed(6)}`;
+  proximityStatus.textContent = "Ziel erfolgreich geladen.";
   scanStatus.textContent =
     `Ziel erkannt: ${targetCoords.lat.toFixed(6)}, ${targetCoords.lng.toFixed(6)}`;
 
@@ -125,7 +165,7 @@ function parseCoordinates(text) {
     /(-?\d{1,2}(?:\.\d+)?)\s*[,; ]\s*(-?\d{1,3}(?:\.\d+)?)/i
   );
 
-  if (!match && clean.includes("geo:")) {
+  if (!match) {
     match = clean.match(/geo:\s*(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)/i);
   }
 
@@ -166,7 +206,7 @@ function startLocationTracking() {
       permissionStatus.textContent = "Standort aktiv.";
       updateUserMarker();
       updateNavigation();
-      fitMapToAvailablePoints();
+      fitMapToAvailablePoints(false);
     },
     (error) => {
       permissionStatus.textContent = `Standortfehler: ${error.message}`;
@@ -188,13 +228,13 @@ async function requestOrientationPermission() {
       const result = await DeviceOrientationEvent.requestPermission();
       if (result === "granted") {
         permissionStatus.textContent =
-          "Kompass freigegeben. Bitte Gerät waagrecht halten und bewegen.";
+          "Kompass freigegeben. Bitte Gerät möglichst waagrecht halten.";
       } else {
-        permissionStatus.textContent = "Kompass-Berechtigung nicht erteilt.";
+        permissionStatus.textContent = "Kompass-Berechtigung wurde nicht erteilt.";
       }
     } else {
       permissionStatus.textContent =
-        "Kompass benötigt keine separate Freigabe oder wird automatisch bereitgestellt.";
+        "Kompass ist aktiv oder benötigt keine separate Freigabe.";
     }
   } catch (error) {
     permissionStatus.textContent = `Kompassfreigabe fehlgeschlagen: ${error.message}`;
@@ -206,8 +246,6 @@ function handleOrientation(event) {
 
   if (typeof event.webkitCompassHeading === "number") {
     heading = event.webkitCompassHeading;
-  } else if (event.absolute === true && typeof event.alpha === "number") {
-    heading = 360 - event.alpha;
   } else if (typeof event.alpha === "number") {
     heading = 360 - event.alpha;
   }
@@ -228,7 +266,20 @@ function updateTargetMarker() {
     targetMarker.setLatLng([targetCoords.lat, targetCoords.lng]);
   }
 
-  targetMarker.bindPopup("Ziel").openPopup();
+  if (!targetRadiusCircle) {
+    targetRadiusCircle = L.circle([targetCoords.lat, targetCoords.lng], {
+      radius: 20,
+      color: "#ef4444",
+      fillColor: "#ef4444",
+      fillOpacity: 0.12,
+      weight: 2,
+    }).addTo(map);
+  } else {
+    targetRadiusCircle.setLatLng([targetCoords.lat, targetCoords.lng]);
+    targetRadiusCircle.setRadius(20);
+  }
+
+  targetMarker.bindPopup("Zielpunkt");
 }
 
 function updateUserMarker() {
@@ -245,7 +296,8 @@ function updateUserMarker() {
       radius: currentCoords.accuracy,
       color: "#60a5fa",
       fillColor: "#60a5fa",
-      fillOpacity: 0.12,
+      fillOpacity: 0.08,
+      weight: 2,
     }).addTo(map);
   } else {
     accuracyCircle.setLatLng([currentCoords.lat, currentCoords.lng]);
@@ -255,9 +307,16 @@ function updateUserMarker() {
 
 function updateNavigation() {
   if (!targetCoords || !currentCoords) {
+    if (!targetCoords) {
+      hint.textContent = "Bitte zuerst einen QR-Code mit Zielkoordinaten scannen.";
+      proximityStatus.textContent = "Noch kein Ziel aktiv.";
+    } else {
+      hint.textContent = "Ziel ist gesetzt. Bitte jetzt den Standort aktivieren.";
+      proximityStatus.textContent = "Ziel vorhanden, Position fehlt noch.";
+    }
     distanceText.textContent = "–";
     bearingText.textContent = "–";
-    hint.textContent = "Scanne zuerst ein Ziel und aktiviere den Standort.";
+    updateTargetLine();
     return;
   }
 
@@ -278,104 +337,48 @@ function updateNavigation() {
   distanceText.textContent = formatDistance(distance);
   bearingText.textContent = `${Math.round(targetBearing)}°`;
 
-  const arrowRotation =
-    currentHeading === null
-      ? targetBearing
-      : normalizeDegrees(targetBearing - currentHeading);
+  const rotation = currentHeading === null
+    ? targetBearing
+    : normalizeDegrees(targetBearing - currentHeading);
 
-  arrow.style.transform = `rotate(${arrowRotation}deg)`;
-  applyArrowColor(distance);
+  arrow.style.transform = `translate(-50%, -76%) rotate(${rotation}deg)`;
+
+  const color = getProximityColor(distance);
+  applyArrowColor(color);
+  updateProximityText(distance);
+  updateTargetLine();
 
   if (currentHeading === null) {
     hint.textContent =
-      "Kompass nicht verfügbar. Karte und Distanz helfen weiterhin bei der Navigation.";
+      "Kompass nicht verfügbar. Distanz und Karte helfen weiterhin bei der Orientierung.";
   } else if (distance <= 3) {
     hint.textContent = "Ziel erreicht.";
   } else {
-    hint.textContent = "Pfeil zeigt in die Laufrichtung zum Ziel.";
+    hint.textContent = "Pfeil zeigt in die Richtung, in die du gehen solltest.";
+  }
+
+  handleProximityBeeps(distance);
+}
+
+function updateProximityText(distance) {
+  if (distance > 20) {
+    proximityStatus.textContent = "Noch mehr als 20 m entfernt.";
+    proximityStatus.style.color = "#93c5fd";
+  } else if (distance > 10) {
+    proximityStatus.textContent = "Innerhalb der letzten 20 m.";
+    proximityStatus.style.color = "#facc15";
+  } else if (distance > 3) {
+    proximityStatus.textContent = "Sehr nah am Ziel.";
+    proximityStatus.style.color = "#fb923c";
+  } else {
+    proximityStatus.textContent = "Ziel erreicht.";
+    proximityStatus.style.color = "#f87171";
   }
 }
 
-function applyArrowColor(distance) {
+function getProximityColor(distance) {
   let red = 59;
   let green = 130;
   let blue = 246;
 
-  if (distance <= 20) {
-    const t = Math.max(0, Math.min(1, (20 - distance) / 20));
-    red = Math.round(59 + (239 - 59) * t);
-    green = Math.round(130 + (68 - 130) * t);
-    blue = Math.round(246 + (68 - 246) * t);
-  }
-
-  const color = `rgb(${red}, ${green}, ${blue})`;
-  arrow.style.borderBottomColor = color;
-  arrow.style.filter = `drop-shadow(0 0 16px ${color})`;
-}
-
-function fitMapToAvailablePoints() {
-  const points = [];
-
-  if (currentCoords) points.push([currentCoords.lat, currentCoords.lng]);
-  if (targetCoords) points.push([targetCoords.lat, targetCoords.lng]);
-
-  if (points.length === 0) return;
-  if (points.length === 1) {
-    map.setView(points[0], 18);
-    return;
-  }
-
-  const bounds = L.latLngBounds(points);
-  map.fitBounds(bounds, { padding: [40, 40] });
-}
-
-function haversineDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371000;
-  const toRad = (deg) => (deg * Math.PI) / 180;
-
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-function calculateBearing(lat1, lon1, lat2, lon2) {
-  const toRad = (deg) => (deg * Math.PI) / 180;
-  const toDeg = (rad) => (rad * 180) / Math.PI;
-
-  const phi1 = toRad(lat1);
-  const phi2 = toRad(lat2);
-  const lambda1 = toRad(lon1);
-  const lambda2 = toRad(lon2);
-
-  const y = Math.sin(lambda2 - lambda1) * Math.cos(phi2);
-  const x =
-    Math.cos(phi1) * Math.sin(phi2) -
-    Math.sin(phi1) * Math.cos(phi2) * Math.cos(lambda2 - lambda1);
-
-  return normalizeDegrees(toDeg(Math.atan2(y, x)));
-}
-
-function normalizeDegrees(value) {
-  return (value % 360 + 360) % 360;
-}
-
-function formatDistance(distanceMeters) {
-  if (distanceMeters < 1000) {
-    return `${distanceMeters.toFixed(1)} m`;
-  }
-  return `${(distanceMeters / 1000).toFixed(2)} km`;
-}
-
-function updateUI() {
-  targetText.textContent = "–";
-  currentText.textContent = "–";
-  distanceText.textContent = "–";
-  headingText.textContent = "–";
-  bearingText.textContent = "–";
-}
+  if (distance <= 20
