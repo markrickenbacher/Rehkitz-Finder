@@ -38,7 +38,7 @@ body {
 .hero {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   margin-bottom: 16px;
   padding: 18px 20px;
@@ -58,15 +58,6 @@ body {
   color: var(--muted);
 }
 
-.badge {
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(59, 130, 246, 0.15);
-  color: #93c5fd;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-}
-
 .grid {
   display: grid;
   gap: 16px;
@@ -83,11 +74,6 @@ body {
 .panel h2 {
   margin-top: 0;
   margin-bottom: 8px;
-}
-
-.panel-text {
-  color: var(--muted);
-  margin-top: 0;
 }
 
 .actions {
@@ -298,12 +284,6 @@ button:disabled {
   height: 460px;
   border-radius: 16px;
   overflow: hidden;
-}
-
-code {
-  padding: 2px 7px;
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.08);
 }
 
 @media (max-width: 860px) {
