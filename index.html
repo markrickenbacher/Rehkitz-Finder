@@ -32,23 +32,14 @@
           <h1>Rehkitz Finder</h1>
           <p>QR-Code scannen, Zielpunkt erfassen und direkt hin navigieren.</p>
         </div>
-        <div class="badge">PWA</div>
       </header>
 
       <main class="grid">
         <section class="panel">
           <h2>Ziel erfassen</h2>
-          <p class="panel-text">
-            Erwartetes QR-Format: <code>47.3769,8.5417</code> oder
-            <code>geo:47.3769,8.5417</code>
-          </p>
 
           <div class="actions">
             <button id="startScanBtn">QR scannen</button>
-            <button id="stopScanBtn" class="secondary" disabled>
-              Scanner stoppen
-            </button>
-            <button id="clearTargetBtn" class="ghost">Ziel löschen</button>
           </div>
 
           <div id="reader" class="reader hidden"></div>
@@ -64,7 +55,6 @@
             <button id="requestOrientationBtn" class="secondary">
               Kompass freigeben
             </button>
-            <button id="testSoundBtn" class="ghost">Ton testen</button>
             <button id="calibrateLeftBtn" class="ghost">Pfeil -10°</button>
             <button id="calibrateRightBtn" class="ghost">Pfeil +10°</button>
           </div>
@@ -95,10 +85,6 @@
               <div class="stat">
                 <span>Distanz</span>
                 <strong id="distanceText">–</strong>
-              </div>
-              <div class="stat">
-                <span>Eigenes Heading</span>
-                <strong id="headingText">–</strong>
               </div>
               <div class="stat">
                 <span>Richtungsmodus</span>
