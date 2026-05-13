@@ -1,4 +1,4 @@
-const CACHE_NAME = "rehkitz-finder-v2";
+const CACHE_NAME = "rehkitz-finder-v3";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
@@ -20,9 +20,7 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
-        keys
-          .filter((key) => key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
+        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
       )
     )
   );
@@ -36,9 +34,7 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
 
-  if (url.origin !== self.location.origin) {
-    return;
-  }
+  if (url.origin !== self.location.origin) return;
 
   event.respondWith(
     caches.match(request).then((cached) => {
