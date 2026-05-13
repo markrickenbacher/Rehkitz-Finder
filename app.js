@@ -1,9 +1,6 @@
 const startScanBtn = document.getElementById("startScanBtn");
-const stopScanBtn = document.getElementById("stopScanBtn");
-const clearTargetBtn = document.getElementById("clearTargetBtn");
 const startTrackingBtn = document.getElementById("startTrackingBtn");
 const requestOrientationBtn = document.getElementById("requestOrientationBtn");
-const testSoundBtn = document.getElementById("testSoundBtn");
 const centerMapBtn = document.getElementById("centerMapBtn");
 const calibrateLeftBtn = document.getElementById("calibrateLeftBtn");
 const calibrateRightBtn = document.getElementById("calibrateRightBtn");
@@ -12,7 +9,6 @@ const scanStatus = document.getElementById("scanStatus");
 const permissionStatus = document.getElementById("permissionStatus");
 const proximityStatus = document.getElementById("proximityStatus");
 const distanceText = document.getElementById("distanceText");
-const headingText = document.getElementById("headingText");
 const bearingText = document.getElementById("bearingText");
 const targetText = document.getElementById("targetText");
 const currentText = document.getElementById("currentText");
@@ -75,11 +71,8 @@ function initMap() {
 
 function bindEvents() {
   startScanBtn.addEventListener("click", startScanner);
-  stopScanBtn.addEventListener("click", stopScanner);
-  clearTargetBtn.addEventListener("click", clearTarget);
   startTrackingBtn.addEventListener("click", startLocationTracking);
   requestOrientationBtn.addEventListener("click", requestOrientationPermission);
-  testSoundBtn.addEventListener("click", () => playBeep(880, 180, 0.05));
   centerMapBtn.addEventListener("click", () => fitMapToAvailablePoints(true));
   calibrateLeftBtn.addEventListener("click", () => adjustHeadingOffset(-10));
   calibrateRightBtn.addEventListener("click", () => adjustHeadingOffset(10));
@@ -90,7 +83,6 @@ function bindEvents() {
 
 function updateStaticUI() {
   distanceText.textContent = "–";
-  headingText.textContent = "–";
   bearingText.textContent = "–";
   currentText.textContent = "–";
   directionModeText.textContent = "–";
@@ -137,7 +129,6 @@ async function startScanner() {
 
     scannerRunning = true;
     startScanBtn.disabled = true;
-    stopScanBtn.disabled = false;
     scanStatus.textContent = "Scanner aktiv. Bitte QR-Code ins Kamerabild halten.";
   } catch (error) {
     scanStatus.textContent = `Scanner konnte nicht gestartet werden: ${error}`;
@@ -145,7 +136,7 @@ async function startScanner() {
   }
 }
 
-async function stopScanner() {
+async function stopScannerAfterSuccess() {
   if (!html5QrCode || !scannerRunning) return;
 
   try {
@@ -155,9 +146,7 @@ async function stopScanner() {
   } finally {
     scannerRunning = false;
     startScanBtn.disabled = false;
-    stopScanBtn.disabled = true;
     reader.classList.add("hidden");
-    scanStatus.textContent = "Scanner gestoppt.";
   }
 }
 
@@ -183,47 +172,7 @@ async function onScanSuccess(decodedText) {
   updateNavigation();
   fitMapToAvailablePoints(true);
 
-  await stopScanner();
-}
-
-function clearTarget() {
-  targetCoords = null;
-  targetReachedBeepPlayed = false;
-  nearTargetBeepPlayed = false;
-
-  localStorage.removeItem("rehkitz-target");
-
-  if (targetMarker) {
-    map.removeLayer(targetMarker);
-    targetMarker = null;
-  }
-
-  if (targetRadiusCircle) {
-    map.removeLayer(targetRadiusCircle);
-    targetRadiusCircle = null;
-  }
-
-  if (lineToTarget) {
-    map.removeLayer(lineToTarget);
-    lineToTarget = null;
-  }
-
-  targetText.textContent = "–";
-  distanceText.textContent = "–";
-  bearingText.textContent = "–";
-  directionModeText.textContent = "–";
-  proximityStatus.textContent = "Noch kein Ziel aktiv.";
-  proximityStatus.style.color = "";
-  hint.textContent = "Bitte QR-Code scannen, um ein neues Ziel zu setzen.";
-  scanStatus.textContent = "Ziel gelöscht. Du kannst jetzt neu scannen.";
-  arrow.style.transform = "translate(-50%, -76%) rotate(0deg)";
-  applyArrowColor("rgb(59, 130, 246)");
-
-  if (currentCoords) {
-    map.setView([currentCoords.lat, currentCoords.lng], 18);
-  } else {
-    map.setView(DEFAULT_CENTER, 16);
-  }
+  await stopScannerAfterSuccess();
 }
 
 function parseCoordinates(text) {
@@ -336,7 +285,6 @@ function handleOrientation(event) {
   if (heading === null || Number.isNaN(heading)) return;
 
   currentHeading = normalizeDegrees(heading);
-  headingText.textContent = `${Math.round(currentHeading)}°`;
   updateNavigation();
 }
 
@@ -469,7 +417,7 @@ function getBestHeadingSource() {
 
   if (currentHeading !== null) {
     return {
-      type: "Kompass",
+      type: "compass",
       label: "Kompass",
       heading: currentHeading,
     };
