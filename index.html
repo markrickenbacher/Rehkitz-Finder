@@ -36,27 +36,16 @@
 
       <main class="grid">
         <section class="panel">
-          <h2>Ziel erfassen</h2>
+          <h2>Suche vorbereiten</h2>
 
           <div class="actions">
             <button id="startScanBtn">QR scannen</button>
+            <button id="startSearchBtn">Suche starten</button>
           </div>
 
           <div id="reader" class="reader hidden"></div>
           <div id="scanStatus" class="info-box">
             Scanner noch nicht gestartet.
-          </div>
-        </section>
-
-        <section class="panel">
-          <h2>Sensoren</h2>
-          <div class="actions">
-            <button id="startTrackingBtn">Standort starten</button>
-            <button id="requestOrientationBtn" class="secondary">
-              Kompass freigeben
-            </button>
-            <button id="calibrateLeftBtn" class="ghost">Pfeil -10°</button>
-            <button id="calibrateRightBtn" class="ghost">Pfeil +10°</button>
           </div>
           <div id="permissionStatus" class="info-box">
             Standort und Kompass sind noch nicht aktiv.
@@ -77,7 +66,6 @@
               </div>
               <div class="arrow-caption">
                 <span>Richtung zum Ziel</span>
-                <strong id="bearingText">–</strong>
               </div>
             </div>
 
@@ -103,7 +91,7 @@
 
           <div id="proximityStatus" class="proximity">Noch kein Ziel aktiv.</div>
           <div id="hint" class="info-box">
-            Bitte zuerst QR-Code scannen und Standort aktivieren.
+            Bitte zuerst QR-Code scannen und danach Suche starten.
           </div>
         </section>
 
