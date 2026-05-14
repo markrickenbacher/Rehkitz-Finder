@@ -1,9 +1,20 @@
+const GOOGLE_FORM_ACTION_URL =
+  "https://docs.google.com/forms/d/e/1FAIpQLScoDXJmznfCCSkOtds7VLY38zztmyrw1cgU2iSgJPtcAc1H9g/formResponse";
+
+const GOOGLE_FORM_FIELDS = {
+  date: "entry.2133523640",
+  latitude: "entry.1056871652",
+  longitude: "entry.1495036116",
+};
+
 const startScanBtn = document.getElementById("startScanBtn");
 const startSearchBtn = document.getElementById("startSearchBtn");
 const centerMapBtn = document.getElementById("centerMapBtn");
+const sendLocationBtn = document.getElementById("sendLocationBtn");
 
 const scanStatus = document.getElementById("scanStatus");
 const permissionStatus = document.getElementById("permissionStatus");
+const sendStatus = document.getElementById("sendStatus");
 const distanceText = document.getElementById("distanceText");
 const targetText = document.getElementById("targetText");
 const reader = document.getElementById("reader");
@@ -64,6 +75,7 @@ function bindEvents() {
   startScanBtn.addEventListener("click", startScanner);
   startSearchBtn.addEventListener("click", startSearch);
   centerMapBtn.addEventListener("click", () => fitMapToAvailablePoints(true));
+  sendLocationBtn.addEventListener("click", submitCurrentLocationToGoogleForm);
 
   window.addEventListener("deviceorientationabsolute", handleOrientation, true);
   window.addEventListener("deviceorientation", handleOrientation, true);
@@ -77,6 +89,7 @@ async function startSearch() {
 function updateStaticUI() {
   distanceText.textContent = "–";
   applyArrowColor("rgb(59, 130, 246)");
+  sendLocationBtn.disabled = true;
 
   if (targetCoords) {
     targetText.textContent = `${targetCoords.lat.toFixed(6)}, ${targetCoords.lng.toFixed(6)}`;
@@ -195,6 +208,8 @@ function startLocationTracking() {
     return;
   }
 
+  permissionStatus.textContent = "Standort wird ermittelt…";
+
   watchId = navigator.geolocation.watchPosition(
     (position) => {
       currentCoords = {
@@ -209,6 +224,8 @@ function startLocationTracking() {
 
       permissionStatus.textContent =
         "Standort aktiv. Richtungssensor wird verwendet, wenn verfügbar.";
+      sendLocationBtn.disabled = false;
+
       updateUserMarker();
       updateNavigation();
       fitMapToAvailablePoints(false);
@@ -367,14 +384,12 @@ function getBestHeadingSource() {
 
   if (trackHeading !== null) {
     return {
-      type: "gps-track",
       heading: trackHeading,
     };
   }
 
   if (currentHeading !== null) {
     return {
-      type: "compass",
       heading: currentHeading,
     };
   }
@@ -537,6 +552,55 @@ async function playBeep(frequency = 1000, duration = 150, volume = 0.05) {
 
   oscillator.start();
   oscillator.stop(ctx.currentTime + duration / 1000);
+}
+
+function submitCurrentLocationToGoogleForm() {
+  if (!currentCoords) {
+    alert("Bitte zuerst Suche starten und Standort bestimmen.");
+    return;
+  }
+
+  const dateValue = formatDate(new Date());
+  const latValue = normalizeCoordinate(currentCoords.lat.toFixed(6));
+  const lonValue = normalizeCoordinate(currentCoords.lng.toFixed(6));
+
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = GOOGLE_FORM_ACTION_URL;
+  form.target = "hidden_iframe";
+
+  const fields = [
+    { name: GOOGLE_FORM_FIELDS.date, value: dateValue },
+    { name: GOOGLE_FORM_FIELDS.latitude, value: "'" + latValue },
+    { name: GOOGLE_FORM_FIELDS.longitude, value: "'" + lonValue },
+  ];
+
+  fields.forEach((field) => {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = field.name;
+    input.value = field.value;
+    form.appendChild(input);
+  });
+
+  document.body.appendChild(form);
+  form.submit();
+  document.body.removeChild(form);
+
+  sendStatus.textContent =
+    `Fundort gesendet: ${dateValue}, ${latValue}, ${lonValue}`;
+  alert("Fundort wurde gesendet.");
+}
+
+function formatDate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function normalizeCoordinate(value) {
+  return String(value).replace(",", ".").trim();
 }
 
 function haversineDistance(lat1, lon1, lat2, lon2) {
