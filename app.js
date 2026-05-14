@@ -4,15 +4,11 @@ const centerMapBtn = document.getElementById("centerMapBtn");
 
 const scanStatus = document.getElementById("scanStatus");
 const permissionStatus = document.getElementById("permissionStatus");
-const proximityStatus = document.getElementById("proximityStatus");
 const distanceText = document.getElementById("distanceText");
 const targetText = document.getElementById("targetText");
-const currentText = document.getElementById("currentText");
-const hint = document.getElementById("hint");
 const reader = document.getElementById("reader");
 const arrow = document.getElementById("arrow");
 const arrowGlow = document.getElementById("arrowGlow");
-const directionModeText = document.getElementById("directionModeText");
 
 let map;
 let userMarker = null;
@@ -80,16 +76,12 @@ async function startSearch() {
 
 function updateStaticUI() {
   distanceText.textContent = "–";
-  currentText.textContent = "–";
-  directionModeText.textContent = "–";
   applyArrowColor("rgb(59, 130, 246)");
 
   if (targetCoords) {
     targetText.textContent = `${targetCoords.lat.toFixed(6)}, ${targetCoords.lng.toFixed(6)}`;
-    proximityStatus.textContent = "Gespeichertes Ziel aktiv.";
   } else {
     targetText.textContent = "–";
-    proximityStatus.textContent = "Noch kein Ziel aktiv.";
   }
 }
 
@@ -160,7 +152,6 @@ async function onScanSuccess(decodedText) {
   nearTargetBeepPlayed = false;
 
   targetText.textContent = `${targetCoords.lat.toFixed(6)}, ${targetCoords.lng.toFixed(6)}`;
-  proximityStatus.textContent = "Ziel erfolgreich geladen.";
   scanStatus.textContent =
     `Ziel erkannt: ${targetCoords.lat.toFixed(6)}, ${targetCoords.lng.toFixed(6)}`;
 
@@ -216,10 +207,8 @@ function startLocationTracking() {
 
       pushRecentPosition(currentCoords);
 
-      currentText.textContent =
-        `${currentCoords.lat.toFixed(6)}, ${currentCoords.lng.toFixed(6)} (±${Math.round(currentCoords.accuracy)} m)`;
-
-      permissionStatus.textContent = "Standort aktiv. Richtungssensor wird verwendet, wenn verfügbar.";
+      permissionStatus.textContent =
+        "Standort aktiv. Richtungssensor wird verwendet, wenn verfügbar.";
       updateUserMarker();
       updateNavigation();
       fitMapToAvailablePoints(false);
@@ -255,8 +244,7 @@ async function requestOrientationPermission() {
     ) {
       const result = await DeviceOrientationEvent.requestPermission();
       if (result === "granted") {
-        permissionStatus.textContent =
-          "Standort aktiv. Kompassfreigabe erteilt.";
+        permissionStatus.textContent = "Standort aktiv. Kompassfreigabe erteilt.";
       } else {
         permissionStatus.textContent =
           "Standort aktiv. Kompassfreigabe wurde nicht erteilt.";
@@ -336,18 +324,7 @@ function updateUserMarker() {
 
 function updateNavigation() {
   if (!targetCoords || !currentCoords) {
-    if (!targetCoords) {
-      hint.textContent = "Bitte zuerst einen QR-Code mit Zielkoordinaten scannen.";
-      proximityStatus.textContent = "Noch kein Ziel aktiv.";
-      proximityStatus.style.color = "";
-    } else {
-      hint.textContent = "Ziel ist gesetzt. Bitte jetzt Suche starten.";
-      proximityStatus.textContent = "Ziel vorhanden, Position fehlt noch.";
-      proximityStatus.style.color = "#93c5fd";
-    }
-
     distanceText.textContent = "–";
-    directionModeText.textContent = "–";
     updateTargetLine();
     return;
   }
@@ -371,8 +348,6 @@ function updateNavigation() {
   const headingSource = getBestHeadingSource();
   const effectiveHeading = headingSource ? headingSource.heading : null;
 
-  directionModeText.textContent = headingSource ? headingSource.label : "Kein Heading";
-
   const rotation =
     effectiveHeading === null
       ? targetBearing
@@ -382,19 +357,7 @@ function updateNavigation() {
 
   const color = getProximityColor(distance);
   applyArrowColor(color);
-  updateProximityText(distance);
   updateTargetLine();
-
-  if (!headingSource) {
-    hint.textContent =
-      "Noch keine verlässliche Bewegungs- oder Kompassrichtung verfügbar. Nutze vorerst Karte und Distanz.";
-  } else if (headingSource.type === "gps-track") {
-    hint.textContent = "Pfeil nutzt Bewegungsrichtung aus GPS-Verlauf.";
-  } else if (distance <= 3) {
-    hint.textContent = "Ziel erreicht.";
-  } else {
-    hint.textContent = "Pfeil nutzt Kompassrichtung.";
-  }
 
   handleProximityBeeps(distance);
 }
@@ -405,7 +368,6 @@ function getBestHeadingSource() {
   if (trackHeading !== null) {
     return {
       type: "gps-track",
-      label: "GPS-Bewegung",
       heading: trackHeading,
     };
   }
@@ -413,7 +375,6 @@ function getBestHeadingSource() {
   if (currentHeading !== null) {
     return {
       type: "compass",
-      label: "Kompass",
       heading: currentHeading,
     };
   }
@@ -434,22 +395,6 @@ function calculateTrackHeadingFromRecentPositions() {
   }
 
   return calculateBearing(first.lat, first.lng, last.lat, last.lng);
-}
-
-function updateProximityText(distance) {
-  if (distance > 20) {
-    proximityStatus.textContent = "Noch mehr als 20 m entfernt.";
-    proximityStatus.style.color = "#93c5fd";
-  } else if (distance > 10) {
-    proximityStatus.textContent = "Innerhalb der letzten 20 m.";
-    proximityStatus.style.color = "#facc15";
-  } else if (distance > 3) {
-    proximityStatus.textContent = "Sehr nah am Ziel.";
-    proximityStatus.style.color = "#fb923c";
-  } else {
-    proximityStatus.textContent = "Ziel erreicht.";
-    proximityStatus.style.color = "#f87171";
-  }
 }
 
 function getProximityColor(distance) {
