@@ -1,4 +1,4 @@
-const CACHE_NAME = "rehkitz-finder-v6";
+const CACHE_NAME = "rehkitz-finder-v7";
 
 const STATIC_ASSETS = [
   "./",
