@@ -17,6 +17,8 @@ const permissionStatus = document.getElementById("permissionStatus");
 const sendStatus = document.getElementById("sendStatus");
 const distanceText = document.getElementById("distanceText");
 const targetText = document.getElementById("targetText");
+const nearDistanceBox = document.getElementById("nearDistanceBox");
+const nearDistanceText = document.getElementById("nearDistanceText");
 const reader = document.getElementById("reader");
 const arrow = document.getElementById("arrow");
 const arrowGlow = document.getElementById("arrowGlow");
@@ -38,6 +40,8 @@ let currentHeading = null;
 let targetReachedBeepPlayed = false;
 let nearTargetBeepPlayed = false;
 let audioContext = null;
+let lastDynamicBeepAt = 0;
+let nearZoomApplied = false;
 
 const recentPositions = [];
 const MAX_RECENT_POSITIONS = 6;
@@ -88,6 +92,8 @@ async function startSearch() {
 
 function updateStaticUI() {
   distanceText.textContent = "–";
+  nearDistanceText.textContent = "–";
+  nearDistanceBox.classList.add("hidden");
   applyArrowColor("rgb(59, 130, 246)");
   sendLocationBtn.disabled = true;
 
@@ -163,6 +169,8 @@ async function onScanSuccess(decodedText) {
   saveTarget(targetCoords);
   targetReachedBeepPlayed = false;
   nearTargetBeepPlayed = false;
+  nearZoomApplied = false;
+  lastDynamicBeepAt = 0;
 
   targetText.textContent = `${targetCoords.lat.toFixed(6)}, ${targetCoords.lng.toFixed(6)}`;
   scanStatus.textContent =
@@ -342,6 +350,8 @@ function updateUserMarker() {
 function updateNavigation() {
   if (!targetCoords || !currentCoords) {
     distanceText.textContent = "–";
+    nearDistanceText.textContent = "–";
+    nearDistanceBox.classList.add("hidden");
     updateTargetLine();
     return;
   }
@@ -361,6 +371,7 @@ function updateNavigation() {
   );
 
   distanceText.textContent = formatDistance(distance);
+  updateNearDistanceUI(distance);
 
   const headingSource = getBestHeadingSource();
   const effectiveHeading = headingSource ? headingSource.heading : null;
@@ -375,8 +386,37 @@ function updateNavigation() {
   const color = getProximityColor(distance);
   applyArrowColor(color);
   updateTargetLine();
-
+  updateNearZoom(distance);
   handleProximityBeeps(distance);
+  handleDynamicNearBeep(distance);
+}
+
+function updateNearDistanceUI(distance) {
+  if (distance <= 5) {
+    nearDistanceText.textContent = formatDistance(distance);
+    nearDistanceBox.classList.remove("hidden");
+  } else {
+    nearDistanceText.textContent = "–";
+    nearDistanceBox.classList.add("hidden");
+  }
+}
+
+function updateNearZoom(distance) {
+  if (!map || !targetCoords || !currentCoords) return;
+
+  if (distance <= 10) {
+    const bounds = L.latLngBounds(
+      [currentCoords.lat, currentCoords.lng],
+      [targetCoords.lat, targetCoords.lng]
+    );
+    map.fitBounds(bounds, { padding: [60, 60], maxZoom: 20 });
+
+    if (!nearZoomApplied) {
+      nearZoomApplied = true;
+    }
+  } else {
+    nearZoomApplied = false;
+  }
 }
 
 function getBestHeadingSource() {
@@ -507,6 +547,33 @@ function handleProximityBeeps(distance) {
   if (distance > 3) {
     targetReachedBeepPlayed = false;
   }
+}
+
+function handleDynamicNearBeep(distance) {
+  if (distance > 10 || distance <= 0.5) {
+    return;
+  }
+
+  const now = Date.now();
+  const interval = getDynamicBeepInterval(distance);
+
+  if (now - lastDynamicBeepAt < interval) {
+    return;
+  }
+
+  lastDynamicBeepAt = now;
+
+  const frequency = distance <= 2 ? 1600 : distance <= 5 ? 1300 : 1000;
+  const duration = distance <= 2 ? 120 : 100;
+
+  playBeep(frequency, duration, 0.04);
+}
+
+function getDynamicBeepInterval(distance) {
+  if (distance <= 2) return 250;
+  if (distance <= 3) return 400;
+  if (distance <= 5) return 650;
+  return 1000;
 }
 
 function playBeepSequence(tones) {
