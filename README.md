@@ -66,8 +66,6 @@ Mit **Suche starten** versucht die App gleichzeitig:
 
 Dadurch wird die Navigation vorbereitet.
 
----
-
 ### 2. Navigation
 
 Die Navigation zeigt:
@@ -83,8 +81,6 @@ Das bedeutet:
 - wenn du dich bewegst, wird die Richtung aus den letzten Positionsänderungen berechnet
 - wenn noch keine verlässliche Bewegungsrichtung vorliegt, wird der **Kompass** als Fallback verwendet
 
----
-
 ### 3. Karte
 
 Die Karte zeigt:
@@ -95,8 +91,6 @@ Die Karte zeigt:
 - eine Linie zwischen aktueller Position und Ziel
 
 Mit dem Button **Auf Ziel zentrieren** wird die Karte neu ausgerichtet.
-
----
 
 ### 4. Suche beenden
 
@@ -186,14 +180,12 @@ http://localhost:8080
 
 ## App-Icon / Logo
 
-Damit beim Speichern auf dem Startbildschirm dein Logo angezeigt wird, müssen diese Dateien vorhanden sein:
+Damit beim Speichern auf dem Startbildschirm und im Header dein Logo angezeigt wird, müssen diese Dateien vorhanden sein:
 
 ```text
 icons/icon-192.png
 icons/icon-512.png
 ```
-
-Diese Dateien werden über das Web App Manifest eingebunden.
 
 ## Projektstruktur
 
