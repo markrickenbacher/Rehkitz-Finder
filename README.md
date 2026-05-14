@@ -8,6 +8,7 @@ Die App ist für Smartphones gedacht und unterstützt:
 - Zielanzeige auf Karte
 - Richtungspfeil zum Ziel
 - Distanzanzeige in Echtzeit
+- Nahbereichsmodus für die letzten Meter
 - Senden des aktuellen Fundorts an Google Forms / Google Sheets
 - PWA-Grundfunktion mit Service Worker
 
@@ -21,6 +22,9 @@ Die App ist für Smartphones gedacht und unterstützt:
 - Farbübergang des Pfeils je nach Nähe zum Ziel
 - Zielradius auf der Karte
 - akustisches Signal bei Zielnähe
+- dynamische Pieptöne im Nahbereich
+- automatische Kartenvergrößerung im Nahbereich
+- große Restdistanzanzeige unter 5 m
 - Ziel speichern im Browser
 - bevorzugte Richtungsbestimmung über GPS-Bewegung
 - Kompass als Fallback
@@ -66,6 +70,8 @@ Mit **Suche starten** versucht die App gleichzeitig:
 
 Dadurch wird die Navigation vorbereitet.
 
+---
+
 ### 2. Navigation
 
 Die Navigation zeigt:
@@ -81,7 +87,41 @@ Das bedeutet:
 - wenn du dich bewegst, wird die Richtung aus den letzten Positionsänderungen berechnet
 - wenn noch keine verlässliche Bewegungsrichtung vorliegt, wird der **Kompass** als Fallback verwendet
 
-### 3. Karte
+---
+
+### 3. Nahbereichsmodus
+
+Für die letzten Meter besitzt die App einen zusätzlichen **Nahbereichsmodus**.
+
+#### Unter 10 Metern
+Wenn du näher als **10 m** am Ziel bist:
+
+- die Karte zoomt automatisch stärker hinein
+- zusätzliche Pieptöne werden abgespielt
+- die Pieptöne werden schneller, je näher du kommst
+
+#### Unter 5 Metern
+Wenn du näher als **5 m** am Ziel bist:
+
+- erscheint eine große zusätzliche Anzeige
+- dort wird die Restdistanz prominent dargestellt, zum Beispiel:
+
+```text
+Noch 4.3 m
+Noch 2.1 m
+Noch 0.9 m
+```
+
+#### Zielnähe
+Zusätzlich gibt es bereits vorhandene Signale:
+- bei ca. **10 m** erste Zielnähe-Signale
+- bei ca. **3 m** ein deutliches Ziel-Erreicht-Signal
+
+Der Nahbereichsmodus soll helfen, den Fundort im letzten Meterbereich schneller und genauer zu finden.
+
+---
+
+### 4. Karte
 
 Die Karte zeigt:
 
@@ -92,7 +132,11 @@ Die Karte zeigt:
 
 Mit dem Button **Auf Ziel zentrieren** wird die Karte neu ausgerichtet.
 
-### 4. Suche beenden
+Im Nahbereich zoomt die Karte zusätzlich automatisch näher an Ziel und aktuelle Position heran.
+
+---
+
+### 5. Suche beenden
 
 Im Bereich **Suche beenden** steht der Button:
 
@@ -164,7 +208,8 @@ http://localhost:8080
 7. falls nötig Sensorfreigabe bestätigen
 8. einige Meter gehen
 9. dem Pfeil folgen
-10. am Fundort **Fundort senden**
+10. im Nahbereich auf Distanzanzeige, Karte und Pieptöne achten
+11. am Fundort **Fundort senden**
 
 ## Installation auf dem Smartphone
 
@@ -218,6 +263,7 @@ Wichtig:
 - Im Wald, bei dichter Bewölkung oder nahe an Gebäuden kann die Position ungenauer werden
 - Browser-Kompasswerte können je nach Gerät springen oder driften
 - Im Stillstand ist die Richtung oft weniger zuverlässig als beim Gehen
+- Auch im Nahbereich ist GPS nicht zentimetergenau
 - Die App ist als praktische Navigationshilfe gedacht, nicht als vermessungstechnisches Präzisionswerkzeug
 
 ## Empfohlene Nutzung im Feld
@@ -228,6 +274,9 @@ Für die beste Richtungsanzeige:
 2. Suche starten
 3. einige Meter in gerader Linie gehen
 4. dem Pfeil folgen
-5. am Fundort **Fundort senden**
+5. im Bereich unter 10 m auf die schnelleren Pieptöne achten
+6. unter 5 m die große Restdistanzanzeige nutzen
+7. Karte im Nahbereich beobachten
+8. am Fundort **Fundort senden**
 
 So ist die Richtungsanzeige meist stabiler und der Fundort kann direkt dokumentiert werden.
