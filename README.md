@@ -1,6 +1,6 @@
 # Rehkitz Finder
 
-Rehkitz Finder ist eine browserbasierte Web-App zur Navigation zu GPS-Zielkoordinaten, die per QR-Code eingelesen werden.
+Rehkitz Finder ist eine browserbasierte Web-App zur Navigation zu GPS-Zielkoordinaten und zum Senden des aktuellen Fundorts an eine Google Form.
 
 Die App ist für Smartphones gedacht und unterstützt:
 - QR-Code-Scan mit Kamera
@@ -8,10 +8,8 @@ Die App ist für Smartphones gedacht und unterstützt:
 - Zielanzeige auf Karte
 - Richtungspfeil zum Ziel
 - Distanzanzeige in Echtzeit
-- einfache Bedienung über eine reduzierte Oberfläche
+- Senden des aktuellen Fundorts an Google Forms / Google Sheets
 - PWA-Grundfunktion mit Service Worker
-
----
 
 ## Funktionen
 
@@ -26,22 +24,30 @@ Die App ist für Smartphones gedacht und unterstützt:
 - Ziel speichern im Browser
 - bevorzugte Richtungsbestimmung über GPS-Bewegung
 - Kompass als Fallback
+- Senden des aktuellen Fundorts an eine Google Form
+- Weiterleitung der Daten in ein Google Sheet
 - PWA-Unterstützung für Installation auf dem Startbildschirm
 - Offline-App-Shell per Service Worker
 
----
+## Aufbau der Oberfläche
+
+Die App ist in vier Bereiche aufgeteilt:
+
+1. **Suche vorbereiten**
+2. **Navigation**
+3. **Karte**
+4. **Suche beenden**
 
 ## Bedienung
 
-Die App ist bewusst einfach aufgebaut.
-
 ### 1. Suche vorbereiten
+
 Im Bereich **Suche vorbereiten** stehen zwei Buttons zur Verfügung:
 
 - **QR scannen**
 - **Suche starten**
 
-### 2. QR scannen
+#### QR scannen
 Mit **QR scannen** wird die Kamera geöffnet, um einen QR-Code mit Zielkoordinaten einzulesen.
 
 Unterstützte Formate:
@@ -52,38 +58,78 @@ Unterstützte Formate:
 geo:47.3769,8.5417
 ```
 
-### 3. Suche starten
+#### Suche starten
 Mit **Suche starten** versucht die App gleichzeitig:
 
 - den **Standort** des Geräts zu starten
 - den **Kompass / Richtungssensor** freizugeben
 
-Dadurch wird die Navigation vorbereitet, ohne dass der Nutzer zwei getrennte Schritte ausführen muss.
+Dadurch wird die Navigation vorbereitet.
 
 ---
 
-## Navigation
+### 2. Navigation
 
-Nach dem Scannen eines Ziels und dem Start der Suche zeigt die App:
+Die Navigation zeigt:
 
-- die **Distanz** zum Ziel
-- den **Richtungsmodus**
-- die **Zielkoordinaten**
-- die **aktuelle Position**
-- einen **Richtungspfeil**
-- die **Karte** mit Ziel und eigener Position
+- einen großen Richtungspfeil
+- die Distanz zum Ziel
+- die Zielkoordinaten
 
-### Richtungslogik
+#### Richtungslogik
 Die App verwendet bevorzugt die **Bewegungsrichtung aus GPS-Positionen**.
 
 Das bedeutet:
 - wenn du dich bewegst, wird die Richtung aus den letzten Positionsänderungen berechnet
 - wenn noch keine verlässliche Bewegungsrichtung vorliegt, wird der **Kompass** als Fallback verwendet
-- wenn weder GPS-Bewegung noch Kompass sinnvoll verfügbar sind, bleiben Karte und Distanzanzeige nutzbar
-
-Das verbessert die Stabilität gegenüber einer rein kompassbasierten Lösung.
 
 ---
+
+### 3. Karte
+
+Die Karte zeigt:
+
+- den Zielpunkt
+- die aktuelle Position
+- den Zielradius
+- eine Linie zwischen aktueller Position und Ziel
+
+Mit dem Button **Auf Ziel zentrieren** wird die Karte neu ausgerichtet.
+
+---
+
+### 4. Suche beenden
+
+Im Bereich **Suche beenden** steht der Button:
+
+- **Fundort senden**
+
+Mit diesem Button wird die **aktuelle GPS-Position** an eine Google Form gesendet.
+
+Gesendet werden:
+- aktuelles Datum
+- aktuelle Latitude
+- aktuelle Longitude
+
+Die Google Form kann mit einem Google Sheet verbunden sein, sodass der Fundort dort automatisch gespeichert wird.
+
+## Google Forms Anbindung
+
+Die App verwendet eine Google Form als Empfänger für den Fundort.
+
+Verwendete Felder:
+
+- Datum → `entry.2133523640`
+- Latitude → `entry.1056871652`
+- Longitude → `entry.1495036116`
+
+Die Daten werden an diese URL gesendet:
+
+```text
+https://docs.google.com/forms/d/e/1FAIpQLScoDXJmznfCCSkOtds7VLY38zztmyrw1cgU2iSgJPtcAc1H9g/formResponse
+```
+
+> Wichtig: Wenn sich die Feld-IDs in der Google Form ändern, muss auch die App angepasst werden.
 
 ## Voraussetzungen
 
@@ -99,8 +145,6 @@ Wichtige Hinweise:
 - auf iPhones muss der Orientierungssensor oft zusätzlich freigegeben werden
 - auf Android kann der Kompass je nach Browser direkt funktionieren oder vom System abhängen
 
----
-
 ## Lokaler Start
 
 ### Mit Python
@@ -115,40 +159,20 @@ Danach im Browser öffnen:
 http://localhost:8080
 ```
 
----
-
 ## Nutzung auf dem Smartphone
 
 1. App öffnen
 2. **QR scannen**
 3. Kamerazugriff erlauben
-4. **Suche starten**
-5. Standortfreigabe erlauben
-6. falls nötig Sensorfreigabe bestätigen
-7. einige Meter gehen, damit **GPS-Bewegung** erkannt wird
-8. dem Pfeil folgen
-
----
-
-## GitHub Pages
-
-Die App ist als statische Website für GitHub Pages geeignet.
-
-### Aktivierung
-1. Repository auf GitHub öffnen
-2. **Settings** → **Pages**
-3. Source wählen:
-   - **Deploy from a branch**
-4. Branch wählen:
-   - `main`
-   - `/ (root)`
-5. Speichern
-
----
+4. Zielkoordinaten scannen
+5. **Suche starten**
+6. Standortfreigabe erlauben
+7. falls nötig Sensorfreigabe bestätigen
+8. einige Meter gehen
+9. dem Pfeil folgen
+10. am Fundort **Fundort senden**
 
 ## Installation auf dem Smartphone
-
-Die App kann auf dem Startbildschirm installiert werden.
 
 ### Android / Chrome
 - Seite öffnen
@@ -160,8 +184,6 @@ Die App kann auf dem Startbildschirm installiert werden.
 - Teilen-Menü öffnen
 - **Zum Home-Bildschirm**
 
----
-
 ## App-Icon / Logo
 
 Damit beim Speichern auf dem Startbildschirm dein Logo angezeigt wird, müssen diese Dateien vorhanden sein:
@@ -172,8 +194,6 @@ icons/icon-512.png
 ```
 
 Diese Dateien werden über das Web App Manifest eingebunden.
-
----
 
 ## Projektstruktur
 
@@ -190,8 +210,6 @@ Rehkitz-Finder/
    └─ icon-512.png
 ```
 
----
-
 ## Offline-Verhalten
 
 Die App nutzt einen Service Worker, um die App-Shell offline verfügbar zu machen.
@@ -200,8 +218,7 @@ Wichtig:
 - externe Bibliotheken und Kartendaten werden weiterhin über das Netz geladen
 - ohne Internet kann die Karte eingeschränkt oder leer sein
 - lokale Dateien der App bleiben zwischengespeichert verfügbar
-
----
+- das Senden an Google Forms benötigt eine Internetverbindung
 
 ## Grenzen der Genauigkeit
 
@@ -211,8 +228,6 @@ Wichtig:
 - Im Stillstand ist die Richtung oft weniger zuverlässig als beim Gehen
 - Die App ist als praktische Navigationshilfe gedacht, nicht als vermessungstechnisches Präzisionswerkzeug
 
----
-
 ## Empfohlene Nutzung im Feld
 
 Für die beste Richtungsanzeige:
@@ -220,7 +235,7 @@ Für die beste Richtungsanzeige:
 1. Ziel per QR-Code scannen
 2. Suche starten
 3. einige Meter in gerader Linie gehen
-4. darauf achten, dass der Richtungsmodus möglichst auf **GPS-Bewegung** wechselt
-5. dann dem Pfeil folgen
+4. dem Pfeil folgen
+5. am Fundort **Fundort senden**
 
-So ist die Richtungsanzeige meist deutlich zuverlässiger als direkt im Stand.
+So ist die Richtungsanzeige meist stabiler und der Fundort kann direkt dokumentiert werden.
