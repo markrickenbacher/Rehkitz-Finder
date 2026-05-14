@@ -48,6 +48,16 @@ body {
   box-shadow: var(--shadow);
 }
 
+.hero-logo {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  border-radius: 14px;
+  flex: 0 0 auto;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 6px;
+}
+
 .hero h1 {
   margin: 0 0 4px;
   font-size: 1.7rem;
@@ -275,6 +285,12 @@ button:disabled {
     margin-bottom: 10px;
   }
 
+  .hero-logo {
+    width: 52px;
+    height: 52px;
+    padding: 5px;
+  }
+
   .hero h1 {
     font-size: 1.45rem;
   }
@@ -337,6 +353,16 @@ button:disabled {
 }
 
 @media (max-width: 420px) {
+  .hero {
+    align-items: center;
+  }
+
+  .hero-logo {
+    width: 48px;
+    height: 48px;
+    padding: 4px;
+  }
+
   .compass {
     width: 160px;
     height: 160px;
