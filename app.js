@@ -36,7 +36,14 @@ let scannerRunning = false;
 let watchId = null;
 let targetCoords = loadSavedTarget();
 let currentCoords = null;
+
 let currentHeading = null;
+let smoothedCompassHeading = null;
+let smoothedArrowRotation = null;
+
+let activeHeadingMode = null;
+let activeHeadingModeSince = 0;
+
 let targetReachedBeepPlayed = false;
 let nearTargetBeepPlayed = false;
 let audioContext = null;
@@ -44,9 +51,15 @@ let lastDynamicBeepAt = 0;
 let nearZoomApplied = false;
 
 const recentPositions = [];
-const MAX_RECENT_POSITIONS = 6;
-const MIN_MOVEMENT_FOR_TRACK_HEADING_METERS = 4;
+const MAX_RECENT_POSITIONS = 8;
+const MIN_MOVEMENT_FOR_TRACK_HEADING_METERS = 6;
+const MIN_TRACK_DISTANCE_FOR_STABLE_HEADING_METERS = 10;
 const DEFAULT_CENTER = [47.3769, 8.5417];
+
+const COMPASS_SMOOTHING_FACTOR = 0.18;
+const ARROW_SMOOTHING_FACTOR = 0.22;
+const MIN_ROTATION_CHANGE_DEGREES = 6;
+const HEADING_MODE_HOLD_MS = 2500;
 
 initMap();
 bindEvents();
@@ -171,6 +184,7 @@ async function onScanSuccess(decodedText) {
   nearTargetBeepPlayed = false;
   nearZoomApplied = false;
   lastDynamicBeepAt = 0;
+  smoothedArrowRotation = null;
 
   targetText.textContent = `${targetCoords.lat.toFixed(6)}, ${targetCoords.lng.toFixed(6)}`;
   scanStatus.textContent =
@@ -231,7 +245,7 @@ function startLocationTracking() {
       pushRecentPosition(currentCoords);
 
       permissionStatus.textContent =
-        "Standort aktiv. Richtungssensor wird verwendet, wenn verfügbar.";
+        "Standort aktiv. Richtung wird stabilisiert berechnet.";
       sendLocationBtn.disabled = false;
 
       updateUserMarker();
@@ -296,6 +310,17 @@ function handleOrientation(event) {
   if (heading === null || Number.isNaN(heading)) return;
 
   currentHeading = normalizeDegrees(heading);
+
+  if (smoothedCompassHeading === null) {
+    smoothedCompassHeading = currentHeading;
+  } else {
+    smoothedCompassHeading = smoothAngle(
+      smoothedCompassHeading,
+      currentHeading,
+      COMPASS_SMOOTHING_FACTOR
+    );
+  }
+
   updateNavigation();
 }
 
@@ -373,15 +398,15 @@ function updateNavigation() {
   distanceText.textContent = formatDistance(distance);
   updateNearDistanceUI(distance);
 
-  const headingSource = getBestHeadingSource();
+  const headingSource = getStableHeadingSource();
   const effectiveHeading = headingSource ? headingSource.heading : null;
 
-  const rotation =
+  const desiredRotation =
     effectiveHeading === null
       ? targetBearing
       : normalizeDegrees(targetBearing - effectiveHeading);
 
-  arrow.style.transform = `translate(-50%, -76%) rotate(${rotation}deg)`;
+  applySmoothedArrowRotation(desiredRotation);
 
   const color = getProximityColor(distance);
   applyArrowColor(color);
@@ -389,6 +414,117 @@ function updateNavigation() {
   updateNearZoom(distance);
   handleProximityBeeps(distance);
   handleDynamicNearBeep(distance);
+}
+
+function getStableHeadingSource() {
+  const trackHeadingInfo = calculateTrackHeadingFromRecentPositions();
+  const compassAvailable = smoothedCompassHeading !== null;
+
+  let preferredMode = null;
+  let preferredHeading = null;
+
+  if (trackHeadingInfo && trackHeadingInfo.distance >= MIN_TRACK_DISTANCE_FOR_STABLE_HEADING_METERS) {
+    preferredMode = "gps";
+    preferredHeading = trackHeadingInfo.heading;
+  } else if (trackHeadingInfo && trackHeadingInfo.distance >= MIN_MOVEMENT_FOR_TRACK_HEADING_METERS) {
+    preferredMode = activeHeadingMode === "gps" ? "gps" : null;
+    preferredHeading = preferredMode === "gps" ? trackHeadingInfo.heading : null;
+  }
+
+  if (!preferredMode && compassAvailable) {
+    preferredMode = "compass";
+    preferredHeading = smoothedCompassHeading;
+  }
+
+  if (!preferredMode && trackHeadingInfo) {
+    preferredMode = "gps";
+    preferredHeading = trackHeadingInfo.heading;
+  }
+
+  if (!preferredMode) {
+    activeHeadingMode = null;
+    return null;
+  }
+
+  const now = Date.now();
+
+  if (!activeHeadingMode) {
+    activeHeadingMode = preferredMode;
+    activeHeadingModeSince = now;
+  } else if (activeHeadingMode !== preferredMode) {
+    const heldLongEnough = now - activeHeadingModeSince >= HEADING_MODE_HOLD_MS;
+
+    if (heldLongEnough) {
+      activeHeadingMode = preferredMode;
+      activeHeadingModeSince = now;
+    }
+  }
+
+  if (activeHeadingMode === "gps" && trackHeadingInfo) {
+    return { heading: trackHeadingInfo.heading, mode: "gps" };
+  }
+
+  if (activeHeadingMode === "compass" && compassAvailable) {
+    return { heading: smoothedCompassHeading, mode: "compass" };
+  }
+
+  if (trackHeadingInfo) {
+    return { heading: trackHeadingInfo.heading, mode: "gps" };
+  }
+
+  if (compassAvailable) {
+    return { heading: smoothedCompassHeading, mode: "compass" };
+  }
+
+  return null;
+}
+
+function calculateTrackHeadingFromRecentPositions() {
+  if (recentPositions.length < 2) return null;
+
+  const first = recentPositions[0];
+  const last = recentPositions[recentPositions.length - 1];
+
+  const movedDistance = haversineDistance(first.lat, first.lng, last.lat, last.lng);
+
+  if (movedDistance < MIN_MOVEMENT_FOR_TRACK_HEADING_METERS) {
+    return null;
+  }
+
+  return {
+    heading: calculateBearing(first.lat, first.lng, last.lat, last.lng),
+    distance: movedDistance,
+  };
+}
+
+function applySmoothedArrowRotation(desiredRotation) {
+  if (smoothedArrowRotation === null) {
+    smoothedArrowRotation = desiredRotation;
+  } else {
+    const delta = shortestAngleDelta(smoothedArrowRotation, desiredRotation);
+
+    if (Math.abs(delta) < MIN_ROTATION_CHANGE_DEGREES) {
+      return;
+    }
+
+    smoothedArrowRotation = smoothAngle(
+      smoothedArrowRotation,
+      desiredRotation,
+      ARROW_SMOOTHING_FACTOR
+    );
+  }
+
+  arrow.style.transform =
+    `translate(-50%, -76%) rotate(${smoothedArrowRotation}deg)`;
+}
+
+function smoothAngle(fromAngle, toAngle, factor) {
+  const delta = shortestAngleDelta(fromAngle, toAngle);
+  return normalizeDegrees(fromAngle + delta * factor);
+}
+
+function shortestAngleDelta(fromAngle, toAngle) {
+  return ((toAngle - fromAngle + 540) % 360) - 180;
 }
 
 function updateNearDistanceUI(distance) {
@@ -410,46 +546,10 @@ function updateNearZoom(distance) {
       [targetCoords.lat, targetCoords.lng]
     );
     map.fitBounds(bounds, { padding: [60, 60], maxZoom: 20 });
-
-    if (!nearZoomApplied) {
-      nearZoomApplied = true;
-    }
+    nearZoomApplied = true;
   } else {
     nearZoomApplied = false;
   }
-}
-
-function getBestHeadingSource() {
-  const trackHeading = calculateTrackHeadingFromRecentPositions();
-
-  if (trackHeading !== null) {
-    return {
-      heading: trackHeading,
-    };
-  }
-
-  if (currentHeading !== null) {
-    return {
-      heading: currentHeading,
-    };
-  }
-
-  return null;
-}
-
-function calculateTrackHeadingFromRecentPositions() {
-  if (recentPositions.length < 2) return null;
-
-  const first = recentPositions[0];
-  const last = recentPositions[recentPositions.length - 1];
-
-  const movedDistance = haversineDistance(first.lat, first.lng, last.lat, last.lng);
-
-  if (movedDistance < MIN_MOVEMENT_FOR_TRACK_HEADING_METERS) {
-    return null;
-  }
-
-  return calculateBearing(first.lat, first.lng, last.lat, last.lng);
 }
 
 function getProximityColor(distance) {
