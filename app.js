@@ -1,15 +1,11 @@
 const startScanBtn = document.getElementById("startScanBtn");
-const startTrackingBtn = document.getElementById("startTrackingBtn");
-const requestOrientationBtn = document.getElementById("requestOrientationBtn");
+const startSearchBtn = document.getElementById("startSearchBtn");
 const centerMapBtn = document.getElementById("centerMapBtn");
-const calibrateLeftBtn = document.getElementById("calibrateLeftBtn");
-const calibrateRightBtn = document.getElementById("calibrateRightBtn");
 
 const scanStatus = document.getElementById("scanStatus");
 const permissionStatus = document.getElementById("permissionStatus");
 const proximityStatus = document.getElementById("proximityStatus");
 const distanceText = document.getElementById("distanceText");
-const bearingText = document.getElementById("bearingText");
 const targetText = document.getElementById("targetText");
 const currentText = document.getElementById("currentText");
 const hint = document.getElementById("hint");
@@ -35,7 +31,6 @@ let currentHeading = null;
 let targetReachedBeepPlayed = false;
 let nearTargetBeepPlayed = false;
 let audioContext = null;
-let headingOffset = loadHeadingOffset();
 
 const recentPositions = [];
 const MAX_RECENT_POSITIONS = 6;
@@ -71,19 +66,20 @@ function initMap() {
 
 function bindEvents() {
   startScanBtn.addEventListener("click", startScanner);
-  startTrackingBtn.addEventListener("click", startLocationTracking);
-  requestOrientationBtn.addEventListener("click", requestOrientationPermission);
+  startSearchBtn.addEventListener("click", startSearch);
   centerMapBtn.addEventListener("click", () => fitMapToAvailablePoints(true));
-  calibrateLeftBtn.addEventListener("click", () => adjustHeadingOffset(-10));
-  calibrateRightBtn.addEventListener("click", () => adjustHeadingOffset(10));
 
   window.addEventListener("deviceorientationabsolute", handleOrientation, true);
   window.addEventListener("deviceorientation", handleOrientation, true);
 }
 
+async function startSearch() {
+  startLocationTracking();
+  await requestOrientationPermission();
+}
+
 function updateStaticUI() {
   distanceText.textContent = "–";
-  bearingText.textContent = "–";
   currentText.textContent = "–";
   directionModeText.textContent = "–";
   applyArrowColor("rgb(59, 130, 246)");
@@ -204,7 +200,7 @@ function startLocationTracking() {
   }
 
   if (watchId !== null) {
-    permissionStatus.textContent = "Standortverfolgung läuft bereits.";
+    permissionStatus.textContent = "Suche läuft bereits.";
     return;
   }
 
@@ -223,7 +219,7 @@ function startLocationTracking() {
       currentText.textContent =
         `${currentCoords.lat.toFixed(6)}, ${currentCoords.lng.toFixed(6)} (±${Math.round(currentCoords.accuracy)} m)`;
 
-      permissionStatus.textContent = "Standort aktiv.";
+      permissionStatus.textContent = "Standort aktiv. Richtungssensor wird verwendet, wenn verfügbar.";
       updateUserMarker();
       updateNavigation();
       fitMapToAvailablePoints(false);
@@ -260,16 +256,18 @@ async function requestOrientationPermission() {
       const result = await DeviceOrientationEvent.requestPermission();
       if (result === "granted") {
         permissionStatus.textContent =
-          "Kompass freigegeben. Bitte Gerät möglichst waagrecht halten.";
+          "Standort aktiv. Kompassfreigabe erteilt.";
       } else {
-        permissionStatus.textContent = "Kompass-Berechtigung wurde nicht erteilt.";
+        permissionStatus.textContent =
+          "Standort aktiv. Kompassfreigabe wurde nicht erteilt.";
       }
     } else {
       permissionStatus.textContent =
-        "Kompass ist aktiv oder benötigt keine separate Freigabe.";
+        "Standort aktiv. Kompass ist verfügbar oder nicht separat freizugeben.";
     }
   } catch (error) {
-    permissionStatus.textContent = `Kompassfreigabe fehlgeschlagen: ${error.message}`;
+    permissionStatus.textContent =
+      `Standort aktiv. Kompassfreigabe fehlgeschlagen: ${error.message}`;
   }
 }
 
@@ -343,13 +341,12 @@ function updateNavigation() {
       proximityStatus.textContent = "Noch kein Ziel aktiv.";
       proximityStatus.style.color = "";
     } else {
-      hint.textContent = "Ziel ist gesetzt. Bitte jetzt den Standort aktivieren.";
+      hint.textContent = "Ziel ist gesetzt. Bitte jetzt Suche starten.";
       proximityStatus.textContent = "Ziel vorhanden, Position fehlt noch.";
       proximityStatus.style.color = "#93c5fd";
     }
 
     distanceText.textContent = "–";
-    bearingText.textContent = "–";
     directionModeText.textContent = "–";
     updateTargetLine();
     return;
@@ -370,7 +367,6 @@ function updateNavigation() {
   );
 
   distanceText.textContent = formatDistance(distance);
-  bearingText.textContent = `${Math.round(targetBearing)}°`;
 
   const headingSource = getBestHeadingSource();
   const effectiveHeading = headingSource ? headingSource.heading : null;
@@ -380,7 +376,7 @@ function updateNavigation() {
   const rotation =
     effectiveHeading === null
       ? targetBearing
-      : normalizeDegrees(targetBearing - effectiveHeading + headingOffset);
+      : normalizeDegrees(targetBearing - effectiveHeading);
 
   arrow.style.transform = `translate(-50%, -76%) rotate(${rotation}deg)`;
 
@@ -393,12 +389,11 @@ function updateNavigation() {
     hint.textContent =
       "Noch keine verlässliche Bewegungs- oder Kompassrichtung verfügbar. Nutze vorerst Karte und Distanz.";
   } else if (headingSource.type === "gps-track") {
-    hint.textContent =
-      `Pfeil nutzt Bewegungsrichtung aus GPS-Verlauf (${Math.round(effectiveHeading)}°).`;
+    hint.textContent = "Pfeil nutzt Bewegungsrichtung aus GPS-Verlauf.";
   } else if (distance <= 3) {
     hint.textContent = "Ziel erreicht.";
   } else {
-    hint.textContent = `Pfeil nutzt Kompassrichtung (${Math.round(effectiveHeading)}°).`;
+    hint.textContent = "Pfeil nutzt Kompassrichtung.";
   }
 
   handleProximityBeeps(distance);
@@ -439,12 +434,6 @@ function calculateTrackHeadingFromRecentPositions() {
   }
 
   return calculateBearing(first.lat, first.lng, last.lat, last.lng);
-}
-
-function adjustHeadingOffset(delta) {
-  headingOffset = normalizeDegrees(headingOffset + delta);
-  saveHeadingOffset(headingOffset);
-  updateNavigation();
 }
 
 function updateProximityText(distance) {
@@ -528,7 +517,7 @@ function fitMapToAvailablePoints(forceFit = false) {
   }
 
   const bounds = L.latLngBounds(points);
-  map.fitBounds(bounds, { padding: [40, 40] });
+  map.fitBounds(bounds, { padding: [30, 30] });
 }
 
 function handleProximityBeeps(distance) {
@@ -676,16 +665,4 @@ function loadSavedTarget() {
   } catch {
     return null;
   }
-}
-
-function saveHeadingOffset(offset) {
-  localStorage.setItem("rehkitz-heading-offset", String(offset));
-}
-
-function loadHeadingOffset() {
-  const raw = localStorage.getItem("rehkitz-heading-offset");
-  if (raw === null) return 0;
-
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) ? parsed : 0;
 }
