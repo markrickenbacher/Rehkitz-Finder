@@ -260,6 +260,30 @@ button:disabled {
   font-size: 0.96rem;
 }
 
+.near-distance-box {
+  margin-top: 16px;
+  border-radius: 18px;
+  padding: 18px 20px;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.18), rgba(249, 115, 22, 0.18));
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  text-align: center;
+}
+
+.near-distance-box span {
+  display: block;
+  color: #fecaca;
+  font-size: 1rem;
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.near-distance-box strong {
+  display: block;
+  font-size: 2.2rem;
+  line-height: 1.1;
+  color: #ffffff;
+}
+
 .map-header {
   display: flex;
   align-items: center;
@@ -338,6 +362,15 @@ button:disabled {
     padding: 10px;
   }
 
+  .near-distance-box {
+    margin-top: 12px;
+    padding: 14px 16px;
+  }
+
+  .near-distance-box strong {
+    font-size: 1.9rem;
+  }
+
   #map {
     height: 220px;
   }
@@ -380,13 +413,18 @@ button:disabled {
     border-bottom-width: 66px;
   }
 
+  .near-distance-box strong {
+    font-size: 1.7rem;
+  }
+
   #map {
     height: 200px;
   }
 
   .stat span,
   .stat strong,
-  .info-box {
+  .info-box,
+  .near-distance-box span {
     font-size: 0.9rem;
   }
 }
