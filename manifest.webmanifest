@@ -1,7 +1,7 @@
 {
   "name": "Rehkitz Finder",
   "short_name": "Rehkitz",
-  "description": "QR-basierte GPS-Navigation zu WGS84-Zielkoordinaten",
+  "description": "QR-basierte GPS-Navigation und Fundort-Erfassung mit Google-Form-Anbindung",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
