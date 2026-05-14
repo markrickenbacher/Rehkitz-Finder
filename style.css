@@ -119,8 +119,7 @@ button.small {
   display: none;
 }
 
-.info-box,
-.proximity {
+.info-box {
   background: rgba(255, 255, 255, 0.05);
   color: var(--muted);
   border-radius: 14px;
@@ -130,12 +129,6 @@ button.small {
 
 .info-box + .info-box {
   margin-top: 10px;
-}
-
-.proximity {
-  margin-top: 12px;
-  margin-bottom: 10px;
-  font-weight: 700;
 }
 
 .nav-grid {
@@ -228,16 +221,6 @@ button.small {
   transform: translateY(-50%);
 }
 
-.arrow-caption {
-  text-align: center;
-}
-
-.arrow-caption span {
-  color: var(--muted);
-  display: block;
-  font-size: 0.95rem;
-}
-
 .stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(140px, 1fr));
@@ -304,17 +287,9 @@ button.small {
     padding: 12px;
   }
 
-  .nav-panel {
-    padding-bottom: 10px;
-  }
-
   .nav-grid {
     grid-template-columns: 1fr;
     gap: 12px;
-  }
-
-  .arrow-zone {
-    gap: 8px;
   }
 
   .compass {
@@ -328,7 +303,6 @@ button.small {
   }
 
   .big-arrow {
-    transform: translate(-50%, -76%) rotate(0deg);
     transform-origin: center 68px;
     border-left-width: 18px;
     border-right-width: 18px;
@@ -342,14 +316,6 @@ button.small {
 
   .stat {
     padding: 10px;
-  }
-
-  .map-panel {
-    padding-top: 10px;
-  }
-
-  .map-header {
-    margin-bottom: 8px;
   }
 
   #map {
@@ -390,9 +356,7 @@ button.small {
 
   .stat span,
   .stat strong,
-  .arrow-caption span,
-  .info-box,
-  .proximity {
+  .info-box {
     font-size: 0.9rem;
   }
 }
