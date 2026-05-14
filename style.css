@@ -27,11 +27,11 @@ body {
 }
 
 body {
-  padding: 14px;
+  padding: 10px;
 }
 
 .app-shell {
-  max-width: 1200px;
+  max-width: 1100px;
   margin: 0 auto;
 }
 
@@ -40,8 +40,8 @@ body {
   align-items: center;
   justify-content: flex-start;
   gap: 12px;
-  margin-bottom: 16px;
-  padding: 18px 20px;
+  margin-bottom: 12px;
+  padding: 14px 16px;
   background: rgba(15, 23, 42, 0.75);
   border: 1px solid var(--panel-border);
   border-radius: var(--radius);
@@ -49,8 +49,8 @@ body {
 }
 
 .hero h1 {
-  margin: 0 0 6px;
-  font-size: 2rem;
+  margin: 0 0 4px;
+  font-size: 1.7rem;
 }
 
 .hero p {
@@ -60,27 +60,28 @@ body {
 
 .grid {
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 
 .panel {
   background: var(--panel);
   border: 1px solid var(--panel-border);
   border-radius: var(--radius);
-  padding: 16px;
+  padding: 14px;
   box-shadow: var(--shadow);
 }
 
 .panel h2 {
   margin-top: 0;
   margin-bottom: 8px;
+  font-size: 1.15rem;
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin: 12px 0;
+  margin: 10px 0 12px;
 }
 
 button {
@@ -88,7 +89,7 @@ button {
   border: none;
   border-radius: 14px;
   padding: 12px 16px;
-  font-size: 0.98rem;
+  font-size: 0.96rem;
   font-weight: 700;
   cursor: pointer;
   color: white;
@@ -100,20 +101,10 @@ button.secondary {
   background: #334155;
 }
 
-button.ghost {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-}
-
 button.small {
   padding: 9px 12px;
   font-size: 0.9rem;
   min-height: auto;
-}
-
-button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
 }
 
 .reader {
@@ -133,20 +124,24 @@ button:disabled {
   background: rgba(255, 255, 255, 0.05);
   color: var(--muted);
   border-radius: 14px;
-  padding: 12px 14px;
-  line-height: 1.45;
+  padding: 11px 13px;
+  line-height: 1.4;
+}
+
+.info-box + .info-box {
+  margin-top: 10px;
 }
 
 .proximity {
-  margin-top: 14px;
-  margin-bottom: 12px;
+  margin-top: 12px;
+  margin-bottom: 10px;
   font-weight: 700;
 }
 
 .nav-grid {
   display: grid;
-  grid-template-columns: 320px 1fr;
-  gap: 20px;
+  grid-template-columns: 280px 1fr;
+  gap: 16px;
   align-items: center;
 }
 
@@ -154,13 +149,13 @@ button:disabled {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
 }
 
 .compass {
   position: relative;
-  width: 280px;
-  height: 280px;
+  width: 230px;
+  height: 230px;
   border-radius: 50%;
   background:
     radial-gradient(circle at center, rgba(255, 255, 255, 0.08) 0 34%, transparent 35%),
@@ -179,12 +174,12 @@ button:disabled {
 .arrow-glow {
   position: absolute;
   inset: 50%;
-  width: 26px;
-  height: 120px;
+  width: 22px;
+  height: 96px;
   transform: translate(-50%, -85%);
   border-radius: 999px;
   background: rgba(59, 130, 246, 0.18);
-  filter: blur(20px);
+  filter: blur(18px);
 }
 
 .big-arrow {
@@ -194,10 +189,10 @@ button:disabled {
   width: 0;
   height: 0;
   transform: translate(-50%, -76%) rotate(0deg);
-  transform-origin: center 100px;
-  border-left: 26px solid transparent;
-  border-right: 26px solid transparent;
-  border-bottom: 120px solid var(--blue);
+  transform-origin: center 84px;
+  border-left: 22px solid transparent;
+  border-right: 22px solid transparent;
+  border-bottom: 96px solid var(--blue);
   filter: drop-shadow(0 0 18px rgba(59, 130, 246, 0.5));
   transition: transform 0.18s linear, filter 0.18s linear;
 }
@@ -206,6 +201,7 @@ button:disabled {
   position: absolute;
   font-weight: 800;
   color: var(--muted);
+  font-size: 0.95rem;
 }
 
 .north {
@@ -239,36 +235,32 @@ button:disabled {
 .arrow-caption span {
   color: var(--muted);
   display: block;
-}
-
-.arrow-caption strong {
-  display: block;
-  margin-top: 5px;
-  font-size: 1.15rem;
+  font-size: 0.95rem;
 }
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(140px, 1fr));
+  gap: 10px;
 }
 
 .stat {
   background: rgba(255, 255, 255, 0.04);
   border-radius: 14px;
-  padding: 14px;
+  padding: 12px;
 }
 
 .stat span {
   display: block;
   color: var(--muted);
   margin-bottom: 6px;
-  font-size: 0.92rem;
+  font-size: 0.9rem;
 }
 
 .stat strong {
-  line-height: 1.45;
+  line-height: 1.35;
   word-break: break-word;
+  font-size: 0.96rem;
 }
 
 .map-header {
@@ -276,57 +268,131 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 #map {
   width: 100%;
-  height: 460px;
+  height: 280px;
   border-radius: 16px;
   overflow: hidden;
 }
 
 @media (max-width: 860px) {
+  body {
+    padding: 8px;
+  }
+
+  .hero {
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+
+  .hero h1 {
+    font-size: 1.45rem;
+  }
+
+  .hero p {
+    font-size: 0.95rem;
+  }
+
+  .grid {
+    gap: 10px;
+  }
+
+  .panel {
+    padding: 12px;
+  }
+
+  .nav-panel {
+    padding-bottom: 10px;
+  }
+
   .nav-grid {
     grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .arrow-zone {
+    gap: 8px;
   }
 
   .compass {
-    width: 240px;
-    height: 240px;
+    width: 180px;
+    height: 180px;
+  }
+
+  .arrow-glow {
+    width: 18px;
+    height: 76px;
   }
 
   .big-arrow {
     transform: translate(-50%, -76%) rotate(0deg);
-    transform-origin: center 92px;
-    border-left-width: 24px;
-    border-right-width: 24px;
-    border-bottom-width: 108px;
+    transform-origin: center 68px;
+    border-left-width: 18px;
+    border-right-width: 18px;
+    border-bottom-width: 76px;
+  }
+
+  .stats {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+    gap: 8px;
+  }
+
+  .stat {
+    padding: 10px;
+  }
+
+  .map-panel {
+    padding-top: 10px;
+  }
+
+  .map-header {
+    margin-bottom: 8px;
   }
 
   #map {
-    height: 340px;
-  }
-
-  .hero {
-    flex-direction: column;
-    align-items: flex-start;
+    height: 220px;
   }
 
   .actions {
     flex-direction: column;
+    gap: 8px;
   }
 
   .actions button {
     width: 100%;
   }
+}
 
-  .map-header {
-    flex-direction: column;
-    align-items: stretch;
+@media (max-width: 420px) {
+  .compass {
+    width: 160px;
+    height: 160px;
   }
 
-  .map-header button {
-    width: 100%;
+  .arrow-glow {
+    width: 16px;
+    height: 66px;
+  }
+
+  .big-arrow {
+    transform-origin: center 58px;
+    border-left-width: 16px;
+    border-right-width: 16px;
+    border-bottom-width: 66px;
+  }
+
+  #map {
+    height: 200px;
+  }
+
+  .stat span,
+  .stat strong,
+  .arrow-caption span,
+  .info-box,
+  .proximity {
+    font-size: 0.9rem;
   }
 }
