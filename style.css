@@ -194,37 +194,6 @@ button:disabled {
   transition: transform 0.18s linear, filter 0.18s linear;
 }
 
-.compass-label {
-  position: absolute;
-  font-weight: 800;
-  color: var(--muted);
-  font-size: 0.95rem;
-}
-
-.north {
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.east {
-  right: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.south {
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.west {
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
 .stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(140px, 1fr));
