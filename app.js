@@ -7,7 +7,7 @@ const GOOGLE_FORM_FIELDS = {
   longitude: "entry.1495036116",
 };
 
-const SPLASH_MIN_DURATION_MS = 2000;
+const SPLASH_MIN_DURATION_MS = 5000;
 
 const splashScreen = document.getElementById("splashScreen");
 const appRoot = document.getElementById("appRoot");
