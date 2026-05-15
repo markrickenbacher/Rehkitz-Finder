@@ -7,6 +7,11 @@ const GOOGLE_FORM_FIELDS = {
   longitude: "entry.1495036116",
 };
 
+const SPLASH_MIN_DURATION_MS = 2000;
+
+const splashScreen = document.getElementById("splashScreen");
+const appRoot = document.getElementById("appRoot");
+
 const startScanBtn = document.getElementById("startScanBtn");
 const startSearchBtn = document.getElementById("startSearchBtn");
 const centerMapBtn = document.getElementById("centerMapBtn");
@@ -19,6 +24,7 @@ const distanceText = document.getElementById("distanceText");
 const targetText = document.getElementById("targetText");
 const nearDistanceBox = document.getElementById("nearDistanceBox");
 const nearDistanceText = document.getElementById("nearDistanceText");
+const mapPanel = document.getElementById("mapPanel");
 const reader = document.getElementById("reader");
 const arrow = document.getElementById("arrow");
 const arrowGlow = document.getElementById("arrowGlow");
@@ -48,7 +54,6 @@ let targetReachedBeepPlayed = false;
 let nearTargetBeepPlayed = false;
 let audioContext = null;
 let lastDynamicBeepAt = 0;
-let nearZoomApplied = false;
 
 const recentPositions = [];
 const MAX_RECENT_POSITIONS = 8;
@@ -61,11 +66,38 @@ const ARROW_SMOOTHING_FACTOR = 0.22;
 const MIN_ROTATION_CHANGE_DEGREES = 6;
 const HEADING_MODE_HOLD_MS = 2500;
 
+const userIcon = L.divIcon({
+  className: "custom-marker-wrapper",
+  html: '<div class="user-marker-pin"></div>',
+  iconSize: [22, 22],
+  iconAnchor: [11, 22],
+});
+
+const targetIcon = L.divIcon({
+  className: "custom-marker-wrapper",
+  html: '<div class="target-marker-pin"></div>',
+  iconSize: [22, 22],
+  iconAnchor: [11, 22],
+});
+
 initMap();
 bindEvents();
 registerServiceWorker();
 updateStaticUI();
 restoreTargetIfAvailable();
+showSplashThenApp();
+
+function showSplashThenApp() {
+  window.setTimeout(() => {
+    splashScreen.classList.add("hidden");
+    appRoot.classList.remove("app-hidden");
+
+    window.setTimeout(() => {
+      splashScreen.remove();
+      map.invalidateSize();
+    }, 500);
+  }, SPLASH_MIN_DURATION_MS);
+}
 
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
@@ -83,7 +115,7 @@ function initMap() {
   map = L.map("map").setView(DEFAULT_CENTER, 16);
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
+    maxZoom: 20,
     attribution: "&copy; OpenStreetMap-Mitwirkende",
   }).addTo(map);
 }
@@ -107,6 +139,7 @@ function updateStaticUI() {
   distanceText.textContent = "–";
   nearDistanceText.textContent = "–";
   nearDistanceBox.classList.add("hidden");
+  mapPanel.classList.remove("near-focus");
   applyArrowColor("rgb(59, 130, 246)");
   sendLocationBtn.disabled = true;
 
@@ -182,7 +215,6 @@ async function onScanSuccess(decodedText) {
   saveTarget(targetCoords);
   targetReachedBeepPlayed = false;
   nearTargetBeepPlayed = false;
-  nearZoomApplied = false;
   lastDynamicBeepAt = 0;
   smoothedArrowRotation = null;
 
@@ -328,14 +360,16 @@ function updateTargetMarker() {
   if (!targetCoords) return;
 
   if (!targetMarker) {
-    targetMarker = L.marker([targetCoords.lat, targetCoords.lng]).addTo(map);
+    targetMarker = L.marker([targetCoords.lat, targetCoords.lng], {
+      icon: targetIcon,
+    }).addTo(map);
   } else {
     targetMarker.setLatLng([targetCoords.lat, targetCoords.lng]);
   }
 
   if (!targetRadiusCircle) {
     targetRadiusCircle = L.circle([targetCoords.lat, targetCoords.lng], {
-      radius: 20,
+      radius: 2,
       color: "#ef4444",
       fillColor: "#ef4444",
       fillOpacity: 0.12,
@@ -343,17 +377,19 @@ function updateTargetMarker() {
     }).addTo(map);
   } else {
     targetRadiusCircle.setLatLng([targetCoords.lat, targetCoords.lng]);
-    targetRadiusCircle.setRadius(20);
+    targetRadiusCircle.setRadius(2);
   }
 
-  targetMarker.bindPopup("Zielpunkt");
+  targetMarker.bindPopup("Fundort");
 }
 
 function updateUserMarker() {
   if (!currentCoords) return;
 
   if (!userMarker) {
-    userMarker = L.marker([currentCoords.lat, currentCoords.lng]).addTo(map);
+    userMarker = L.marker([currentCoords.lat, currentCoords.lng], {
+      icon: userIcon,
+    }).addTo(map);
   } else {
     userMarker.setLatLng([currentCoords.lat, currentCoords.lng]);
   }
@@ -377,6 +413,7 @@ function updateNavigation() {
     distanceText.textContent = "–";
     nearDistanceText.textContent = "–";
     nearDistanceBox.classList.add("hidden");
+    mapPanel.classList.remove("near-focus");
     updateTargetLine();
     return;
   }
@@ -540,16 +577,39 @@ function updateNearDistanceUI(distance) {
 function updateNearZoom(distance) {
   if (!map || !targetCoords || !currentCoords) return;
 
+  if (distance <= 2) {
+    mapPanel.classList.add("near-focus");
+
+    const zoom = getAccuracyBasedZoom(currentCoords.accuracy);
+    const bounds = L.latLngBounds(
+      [currentCoords.lat, currentCoords.lng],
+      [targetCoords.lat, targetCoords.lng]
+    );
+
+    map.fitBounds(bounds, {
+      padding: [80, 80],
+      maxZoom: zoom,
+    });
+
+    return;
+  }
+
+  mapPanel.classList.remove("near-focus");
+
   if (distance <= 10) {
     const bounds = L.latLngBounds(
       [currentCoords.lat, currentCoords.lng],
       [targetCoords.lat, targetCoords.lng]
     );
-    map.fitBounds(bounds, { padding: [60, 60], maxZoom: 20 });
-    nearZoomApplied = true;
-  } else {
-    nearZoomApplied = false;
+    map.fitBounds(bounds, { padding: [60, 60], maxZoom: 19 });
   }
+}
+
+function getAccuracyBasedZoom(accuracy) {
+  if (accuracy <= 3) return 20;
+  if (accuracy <= 5) return 19;
+  if (accuracy <= 10) return 18;
+  return 17;
 }
 
 function getProximityColor(distance) {
@@ -617,7 +677,7 @@ function fitMapToAvailablePoints(forceFit = false) {
   }
 
   const bounds = L.latLngBounds(points);
-  map.fitBounds(bounds, { padding: [30, 30] });
+  map.fitBounds(bounds, { padding: [30, 30], maxZoom: 18 });
 }
 
 function handleProximityBeeps(distance) {
