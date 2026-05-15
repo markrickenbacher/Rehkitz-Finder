@@ -7,7 +7,7 @@ const GOOGLE_FORM_FIELDS = {
   longitude: "entry.1495036116",
 };
 
-const SPLASH_MIN_DURATION_MS = 4000;
+const SPLASH_MIN_DURATION_MS = 2000;
 
 const splashScreen = document.getElementById("splashScreen");
 const appRoot = document.getElementById("appRoot");
@@ -54,6 +54,9 @@ let targetReachedBeepPlayed = false;
 let nearTargetBeepPlayed = false;
 let audioContext = null;
 let lastDynamicBeepAt = 0;
+
+let searchActive = false;
+let nearZoomLocked = false;
 
 const recentPositions = [];
 const MAX_RECENT_POSITIONS = 8;
@@ -131,6 +134,8 @@ function bindEvents() {
 }
 
 async function startSearch() {
+  searchActive = true;
+  startSearchBtn.disabled = true;
   startLocationTracking();
   await requestOrientationPermission();
 }
@@ -203,6 +208,23 @@ async function stopScannerAfterSuccess() {
   }
 }
 
+async function stopScannerCompletely() {
+  if (!html5QrCode) return;
+
+  try {
+    if (scannerRunning) {
+      await html5QrCode.stop();
+    }
+    await html5QrCode.clear();
+  } catch (_) {
+  } finally {
+    scannerRunning = false;
+    html5QrCode = null;
+    startScanBtn.disabled = false;
+    reader.classList.add("hidden");
+  }
+}
+
 async function onScanSuccess(decodedText) {
   const parsed = parseCoordinates(decodedText);
 
@@ -217,6 +239,7 @@ async function onScanSuccess(decodedText) {
   nearTargetBeepPlayed = false;
   lastDynamicBeepAt = 0;
   smoothedArrowRotation = null;
+  nearZoomLocked = false;
 
   targetText.textContent = `${targetCoords.lat.toFixed(6)}, ${targetCoords.lng.toFixed(6)}`;
   scanStatus.textContent =
@@ -266,6 +289,8 @@ function startLocationTracking() {
 
   watchId = navigator.geolocation.watchPosition(
     (position) => {
+      if (!searchActive) return;
+
       currentCoords = {
         lat: position.coords.latitude,
         lng: position.coords.longitude,
@@ -282,7 +307,10 @@ function startLocationTracking() {
 
       updateUserMarker();
       updateNavigation();
-      fitMapToAvailablePoints(false);
+
+      if (!nearZoomLocked) {
+        fitMapToAvailablePoints(false);
+      }
     },
     (error) => {
       permissionStatus.textContent = `Standortfehler: ${error.message}`;
@@ -293,6 +321,23 @@ function startLocationTracking() {
       timeout: 10000,
     }
   );
+}
+
+function stopSearch() {
+  searchActive = false;
+
+  if (watchId !== null) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
+
+  nearZoomLocked = false;
+  mapPanel.classList.remove("near-focus");
+
+  startSearchBtn.disabled = false;
+  sendLocationBtn.disabled = true;
+
+  permissionStatus.textContent = "Suche beendet.";
 }
 
 function pushRecentPosition(coords) {
@@ -331,6 +376,8 @@ async function requestOrientationPermission() {
 }
 
 function handleOrientation(event) {
+  if (!searchActive) return;
+
   let heading = null;
 
   if (typeof event.webkitCompassHeading === "number") {
@@ -409,11 +456,10 @@ function updateUserMarker() {
 }
 
 function updateNavigation() {
-  if (!targetCoords || !currentCoords) {
+  if (!targetCoords || !currentCoords || !searchActive) {
     distanceText.textContent = "–";
     nearDistanceText.textContent = "–";
     nearDistanceBox.classList.add("hidden");
-    mapPanel.classList.remove("near-focus");
     updateTargetLine();
     return;
   }
@@ -458,24 +504,19 @@ function getStableHeadingSource() {
   const compassAvailable = smoothedCompassHeading !== null;
 
   let preferredMode = null;
-  let preferredHeading = null;
 
   if (trackHeadingInfo && trackHeadingInfo.distance >= MIN_TRACK_DISTANCE_FOR_STABLE_HEADING_METERS) {
     preferredMode = "gps";
-    preferredHeading = trackHeadingInfo.heading;
   } else if (trackHeadingInfo && trackHeadingInfo.distance >= MIN_MOVEMENT_FOR_TRACK_HEADING_METERS) {
     preferredMode = activeHeadingMode === "gps" ? "gps" : null;
-    preferredHeading = preferredMode === "gps" ? trackHeadingInfo.heading : null;
   }
 
   if (!preferredMode && compassAvailable) {
     preferredMode = "compass";
-    preferredHeading = smoothedCompassHeading;
   }
 
   if (!preferredMode && trackHeadingInfo) {
     preferredMode = "gps";
-    preferredHeading = trackHeadingInfo.heading;
   }
 
   if (!preferredMode) {
@@ -580,20 +621,29 @@ function updateNearZoom(distance) {
   if (distance <= 2) {
     mapPanel.classList.add("near-focus");
 
-    const zoom = getAccuracyBasedZoom(currentCoords.accuracy);
-    const bounds = L.latLngBounds(
-      [currentCoords.lat, currentCoords.lng],
-      [targetCoords.lat, targetCoords.lng]
-    );
+    if (!nearZoomLocked) {
+      nearZoomLocked = true;
 
-    map.fitBounds(bounds, {
-      padding: [80, 80],
-      maxZoom: zoom,
-    });
+      const zoom = getAccuracyBasedZoom(currentCoords.accuracy);
+      const center = [
+        (currentCoords.lat + targetCoords.lat) / 2,
+        (currentCoords.lng + targetCoords.lng) / 2,
+      ];
+
+      map.setView(center, zoom, { animate: true });
+    } else {
+      const center = [
+        (currentCoords.lat + targetCoords.lat) / 2,
+        (currentCoords.lng + targetCoords.lng) / 2,
+      ];
+
+      map.panTo(center, { animate: true });
+    }
 
     return;
   }
 
+  nearZoomLocked = false;
   mapPanel.classList.remove("near-focus");
 
   if (distance <= 10) {
@@ -636,7 +686,7 @@ function applyArrowColor(color) {
 function updateTargetLine() {
   if (!map) return;
 
-  if (!targetCoords || !currentCoords) {
+  if (!targetCoords || !currentCoords || !searchActive) {
     if (lineToTarget) {
       map.removeLayer(lineToTarget);
       lineToTarget = null;
@@ -662,6 +712,8 @@ function updateTargetLine() {
 }
 
 function fitMapToAvailablePoints(forceFit = false) {
+  if (nearZoomLocked && !forceFit) return;
+
   const points = [];
 
   if (currentCoords) points.push([currentCoords.lat, currentCoords.lng]);
@@ -681,6 +733,8 @@ function fitMapToAvailablePoints(forceFit = false) {
 }
 
 function handleProximityBeeps(distance) {
+  if (!searchActive) return;
+
   if (distance <= 3 && !targetReachedBeepPlayed) {
     playBeepSequence([
       { frequency: 1200, duration: 140, volume: 0.06 },
@@ -710,9 +764,8 @@ function handleProximityBeeps(distance) {
 }
 
 function handleDynamicNearBeep(distance) {
-  if (distance > 10 || distance <= 0.5) {
-    return;
-  }
+  if (!searchActive) return;
+  if (distance > 10 || distance <= 0.5) return;
 
   const now = Date.now();
   const interval = getDynamicBeepInterval(distance);
@@ -781,7 +834,7 @@ async function playBeep(frequency = 1000, duration = 150, volume = 0.05) {
   oscillator.stop(ctx.currentTime + duration / 1000);
 }
 
-function submitCurrentLocationToGoogleForm() {
+async function submitCurrentLocationToGoogleForm() {
   if (!currentCoords) {
     alert("Bitte zuerst Suche starten und Standort bestimmen.");
     return;
@@ -816,7 +869,12 @@ function submitCurrentLocationToGoogleForm() {
 
   sendStatus.textContent =
     `Fundort gesendet: ${dateValue}, ${latValue}, ${lonValue}`;
-  alert("Fundort wurde gesendet.");
+
+  await stopScannerCompletely();
+  stopSearch();
+
+  scanStatus.textContent = "Suche abgeschlossen. Fundort wurde gesendet.";
+  alert("Fundort wurde gesendet und die Suche beendet.");
 }
 
 function formatDate(date) {
