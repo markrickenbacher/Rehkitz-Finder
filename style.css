@@ -6,6 +6,7 @@
   --text: #e2e8f0;
   --muted: #94a3b8;
   --blue: rgb(59, 130, 246);
+  --red: rgb(239, 68, 68);
   --shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
   --radius: 18px;
 }
@@ -33,6 +34,58 @@ body {
 .app-shell {
   max-width: 1100px;
   margin: 0 auto;
+}
+
+.app-hidden {
+  visibility: hidden;
+}
+
+.splash-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top, rgba(34, 197, 94, 0.18), transparent 32%),
+    linear-gradient(180deg, #03120b, #0f172a);
+  opacity: 1;
+  transition: opacity 0.45s ease, visibility 0.45s ease;
+}
+
+.splash-screen.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.splash-content {
+  text-align: center;
+  max-width: 320px;
+}
+
+.splash-logo {
+  width: min(52vw, 220px);
+  height: auto;
+  display: block;
+  margin: 0 auto 18px;
+  border-radius: 28px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.splash-title {
+  margin: 0 0 8px;
+  font-size: 1.8rem;
+  color: #f8fafc;
+}
+
+.splash-subtitle {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 1rem;
 }
 
 .hero {
@@ -256,11 +309,59 @@ button:disabled {
   height: 280px;
   border-radius: 16px;
   overflow: hidden;
+  transition: height 0.25s ease;
+}
+
+.map-panel.near-focus #map {
+  height: 460px;
+}
+
+.user-marker-pin,
+.target-marker-pin {
+  width: 22px;
+  height: 22px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  position: relative;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.95), 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.user-marker-pin {
+  background: var(--blue);
+}
+
+.target-marker-pin {
+  background: var(--red);
+}
+
+.user-marker-pin::after,
+.target-marker-pin::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: white;
+  border-radius: 50%;
+  top: 7px;
+  left: 7px;
 }
 
 @media (max-width: 860px) {
   body {
     padding: 8px;
+  }
+
+  .splash-logo {
+    width: min(60vw, 180px);
+    margin-bottom: 16px;
+  }
+
+  .splash-title {
+    font-size: 1.55rem;
+  }
+
+  .splash-subtitle {
+    font-size: 0.95rem;
   }
 
   .hero {
@@ -328,6 +429,10 @@ button:disabled {
     height: 220px;
   }
 
+  .map-panel.near-focus #map {
+    height: 380px;
+  }
+
   .actions {
     flex-direction: column;
     gap: 8px;
@@ -366,6 +471,10 @@ button:disabled {
 
   #map {
     height: 200px;
+  }
+
+  .map-panel.near-focus #map {
+    height: 320px;
   }
 
   .stat span,
