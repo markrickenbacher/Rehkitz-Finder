@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <title>Oltiger Kitz Finder</title>
+    <title>Rehkitz Finder</title>
 
     <meta name="theme-color" content="#0f172a" />
     <meta
@@ -26,11 +26,23 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <div class="app-shell">
+    <div id="splashScreen" class="splash-screen">
+      <div class="splash-content">
+        <img
+          src="icons/icon_512.png"
+          alt="JG Oltingen Logo"
+          class="splash-logo"
+        />
+        <h1 class="splash-title">Rehkitz Finder</h1>
+        <p class="splash-subtitle">Jagdgesellschaft Oltingen</p>
+      </div>
+    </div>
+
+    <div id="appRoot" class="app-shell app-hidden">
       <header class="hero">
         <div>
-          <h1>Oltiger Kitz Finder</h1>
-          <p>QR-Code scannen, Zielpunkt erfassen und der Pfeilspize folgen.</p>
+          <h1>Rehkitz Finder</h1>
+          <p>QR-Code scannen, Zielpunkt erfassen und direkt hin navigieren.</p>
         </div>
       </header>
 
@@ -80,7 +92,7 @@
           </div>
         </section>
 
-        <section class="panel map-panel">
+        <section id="mapPanel" class="panel map-panel">
           <div class="map-header">
             <h2>Karte</h2>
             <button id="centerMapBtn" class="secondary small">
