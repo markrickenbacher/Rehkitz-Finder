@@ -38,6 +38,7 @@ let lineToTarget = null;
 
 let html5QrCode = null;
 let scannerRunning = false;
+let selectedCameraId = null;
 
 let watchId = null;
 let targetCoords = loadSavedTarget();
@@ -96,7 +97,9 @@ function showSplashThenApp() {
     appRoot.classList.remove("app-hidden");
 
     window.setTimeout(() => {
-      splashScreen.remove();
+      if (splashScreen) {
+        splashScreen.remove();
+      }
       map.invalidateSize();
     }, 500);
   }, SPLASH_MIN_DURATION_MS);
@@ -168,30 +171,110 @@ async function startScanner() {
   if (scannerRunning) return;
 
   reader.classList.remove("hidden");
-  scanStatus.textContent = "Starte Kamera…";
-  html5QrCode = new Html5Qrcode("reader");
+  scanStatus.textContent = "Starte Kamera für QR-Erkennung…";
+  startScanBtn.disabled = true;
 
   try {
-    await html5QrCode.start(
-      { facingMode: "environment" },
-      {
-        fps: 10,
-        qrbox: (width, height) => {
-          const size = Math.min(width, height) * 0.72;
-          return { width: size, height: size };
-        },
+    html5QrCode = new Html5Qrcode("reader");
+
+    const cameras = await Html5Qrcode.getCameras();
+    const preferredCamera = pickBestCamera(cameras);
+
+    const scannerConfig = {
+      fps: 15,
+      qrbox: (width, height) => {
+        const minEdge = Math.min(width, height);
+        const size = Math.max(220, Math.floor(minEdge * 0.82));
+        return {
+          width: Math.min(size, width - 20),
+          height: Math.min(size, height - 20),
+        };
       },
-      onScanSuccess,
-      () => {}
-    );
+      aspectRatio: 1.333334,
+      disableFlip: false,
+      experimentalFeatures: {
+        useBarCodeDetectorIfSupported: true,
+      },
+      formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+    };
+
+    if (preferredCamera) {
+      selectedCameraId = preferredCamera.id;
+      scanStatus.textContent =
+        "Rückkamera gewählt. QR-Code ruhig und möglichst formatfüllend ins Bild halten.";
+
+      try {
+        await html5QrCode.start(
+          { deviceId: { exact: preferredCamera.id } },
+          scannerConfig,
+          onScanSuccess,
+          handleScanFrameError
+        );
+      } catch (cameraStartError) {
+        console.warn("Bevorzugte Kamera konnte nicht gestartet werden:", cameraStartError);
+
+        scanStatus.textContent =
+          "Alternative Kamerakonfiguration wird versucht…";
+
+        await html5QrCode.start(
+          { facingMode: "environment" },
+          scannerConfig,
+          onScanSuccess,
+          handleScanFrameError
+        );
+      }
+    } else {
+      scanStatus.textContent =
+        "Keine benannte Rückkamera gefunden. Standard-Rückkamera wird verwendet.";
+
+      await html5QrCode.start(
+        { facingMode: "environment" },
+        scannerConfig,
+        onScanSuccess,
+        handleScanFrameError
+      );
+    }
 
     scannerRunning = true;
-    startScanBtn.disabled = true;
-    scanStatus.textContent = "Scanner aktiv. Bitte QR-Code ins Kamerabild halten.";
+    scanStatus.textContent =
+      "Scanner aktiv. QR-Code gerade halten, näher herangehen und Reflexionen vermeiden.";
   } catch (error) {
-    scanStatus.textContent = `Scanner konnte nicht gestartet werden: ${error}`;
+    console.error("Scanner konnte nicht gestartet werden:", error);
+    scanStatus.textContent =
+      "Scanner konnte nicht gestartet werden. Bitte Kamerazugriff prüfen und QR-Code bei gutem Licht erneut versuchen.";
     reader.classList.add("hidden");
+    startScanBtn.disabled = false;
   }
+}
+
+function pickBestCamera(cameras) {
+  if (!Array.isArray(cameras) || cameras.length === 0) {
+    return null;
+  }
+
+  const scored = cameras.map((camera) => {
+    const label = `${camera.label || ""}`.toLowerCase();
+    let score = 0;
+
+    if (label.includes("back")) score += 50;
+    if (label.includes("rear")) score += 50;
+    if (label.includes("environment")) score += 50;
+    if (label.includes("wide")) score += 5;
+    if (label.includes("main")) score += 15;
+    if (label.includes("camera 0")) score += 10;
+    if (label.includes("front")) score -= 100;
+    if (label.includes("user")) score -= 100;
+    if (label.includes("tele")) score -= 10;
+
+    return { camera, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored[0]?.camera || cameras[0];
+}
+
+function handleScanFrameError(_errorMessage) {
+  // absichtlich leer, damit Statusanzeige nicht flackert
 }
 
 async function stopScannerAfterSuccess() {
@@ -203,6 +286,8 @@ async function stopScannerAfterSuccess() {
   } catch (_) {
   } finally {
     scannerRunning = false;
+    html5QrCode = null;
+    selectedCameraId = null;
     startScanBtn.disabled = false;
     reader.classList.add("hidden");
   }
@@ -220,6 +305,7 @@ async function stopScannerCompletely() {
   } finally {
     scannerRunning = false;
     html5QrCode = null;
+    selectedCameraId = null;
     startScanBtn.disabled = false;
     reader.classList.add("hidden");
   }
@@ -229,7 +315,8 @@ async function onScanSuccess(decodedText) {
   const parsed = parseCoordinates(decodedText);
 
   if (!parsed) {
-    scanStatus.textContent = `QR-Code erkannt, aber ungültiges Format: ${decodedText}`;
+    scanStatus.textContent =
+      `QR-Code erkannt, aber ungültiges Format: ${decodedText}`;
     return;
   }
 
@@ -241,7 +328,8 @@ async function onScanSuccess(decodedText) {
   smoothedArrowRotation = null;
   nearZoomLocked = false;
 
-  targetText.textContent = `${targetCoords.lat.toFixed(6)}, ${targetCoords.lng.toFixed(6)}`;
+  targetText.textContent =
+    `${targetCoords.lat.toFixed(6)}, ${targetCoords.lng.toFixed(6)}`;
   scanStatus.textContent =
     `Ziel erkannt: ${targetCoords.lat.toFixed(6)}, ${targetCoords.lng.toFixed(6)}`;
 
@@ -253,14 +341,22 @@ async function onScanSuccess(decodedText) {
 }
 
 function parseCoordinates(text) {
-  const clean = text.trim();
+  const clean = decodeURIComponent(text.trim());
 
   let match = clean.match(
-    /(-?\d{1,2}(?:\.\d+)?)\s*[,; ]\s*(-?\d{1,3}(?:\.\d+)?)/i
+    /geo:\s*(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)/i
   );
 
   if (!match) {
-    match = clean.match(/geo:\s*(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)/i);
+    match = clean.match(
+      /[?&]q=(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)/i
+    );
+  }
+
+  if (!match) {
+    match = clean.match(
+      /(-?\d{1,2}(?:\.\d+)?)\s*[,; ]\s*(-?\d{1,3}(?:\.\d+)?)/i
+    );
   }
 
   if (!match) return null;
@@ -276,7 +372,8 @@ function parseCoordinates(text) {
 
 function startLocationTracking() {
   if (!navigator.geolocation) {
-    permissionStatus.textContent = "Geolocation wird von diesem Browser nicht unterstützt.";
+    permissionStatus.textContent =
+      "Geolocation wird von diesem Browser nicht unterstützt.";
     return;
   }
 
@@ -360,7 +457,8 @@ async function requestOrientationPermission() {
     ) {
       const result = await DeviceOrientationEvent.requestPermission();
       if (result === "granted") {
-        permissionStatus.textContent = "Standort aktiv. Kompassfreigabe erteilt.";
+        permissionStatus.textContent =
+          "Standort aktiv. Kompassfreigabe erteilt.";
       } else {
         permissionStatus.textContent =
           "Standort aktiv. Kompassfreigabe wurde nicht erteilt.";
@@ -505,9 +603,15 @@ function getStableHeadingSource() {
 
   let preferredMode = null;
 
-  if (trackHeadingInfo && trackHeadingInfo.distance >= MIN_TRACK_DISTANCE_FOR_STABLE_HEADING_METERS) {
+  if (
+    trackHeadingInfo &&
+    trackHeadingInfo.distance >= MIN_TRACK_DISTANCE_FOR_STABLE_HEADING_METERS
+  ) {
     preferredMode = "gps";
-  } else if (trackHeadingInfo && trackHeadingInfo.distance >= MIN_MOVEMENT_FOR_TRACK_HEADING_METERS) {
+  } else if (
+    trackHeadingInfo &&
+    trackHeadingInfo.distance >= MIN_MOVEMENT_FOR_TRACK_HEADING_METERS
+  ) {
     preferredMode = activeHeadingMode === "gps" ? "gps" : null;
   }
 
@@ -563,7 +667,12 @@ function calculateTrackHeadingFromRecentPositions() {
   const first = recentPositions[0];
   const last = recentPositions[recentPositions.length - 1];
 
-  const movedDistance = haversineDistance(first.lat, first.lng, last.lat, last.lng);
+  const movedDistance = haversineDistance(
+    first.lat,
+    first.lng,
+    last.lat,
+    last.lng
+  );
 
   if (movedDistance < MIN_MOVEMENT_FOR_TRACK_HEADING_METERS) {
     return null;
@@ -592,8 +701,7 @@ function applySmoothedArrowRotation(desiredRotation) {
     );
   }
 
-  arrow.style.transform =
-    `translate(-50%, -76%) rotate(${smoothedArrowRotation}deg)`;
+  arrow.style.transform = `translate(-50%, -76%) rotate(${smoothedArrowRotation}deg)`;
 }
 
 function smoothAngle(fromAngle, toAngle, factor) {
@@ -825,7 +933,10 @@ async function playBeep(frequency = 1000, duration = 150, volume = 0.05) {
   oscillator.frequency.value = frequency;
 
   gainNode.gain.setValueAtTime(volume, ctx.currentTime);
-  gainNode.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration / 1000);
+  gainNode.gain.exponentialRampToValueAtTime(
+    0.0001,
+    ctx.currentTime + duration / 1000
+  );
 
   oscillator.connect(gainNode);
   gainNode.connect(ctx.destination);
