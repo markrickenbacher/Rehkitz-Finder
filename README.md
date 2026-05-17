@@ -1,282 +1,132 @@
 # Rehkitz Finder
 
-Rehkitz Finder ist eine browserbasierte Web-App zur Navigation zu GPS-Zielkoordinaten und zum Senden des aktuellen Fundorts an eine Google Form.
-
-Die App ist für Smartphones gedacht und unterstützt:
-- QR-Code-Scan mit Kamera
-- Standortbestimmung per GPS
-- Zielanzeige auf Karte
-- Richtungspfeil zum Ziel
-- Distanzanzeige in Echtzeit
-- Nahbereichsmodus für die letzten Meter
-- Senden des aktuellen Fundorts an Google Forms / Google Sheets
-- PWA-Grundfunktion mit Service Worker
+Eine mobile Web-App zur QR-basierten Navigation zu einem Fundort mit Karte, Richtungsanzeige und Standortübermittlung.
 
 ## Funktionen
 
-- QR-Code-Scan mit Smartphone-Kamera
-- Einlesen von WGS84-Koordinaten in Dezimalgrad
-- Anzeige von Zielpunkt und eigener Position auf einer Karte
-- großer Richtungspfeil zum Ziel
-- Distanzanzeige in Echtzeit
-- Farbübergang des Pfeils je nach Nähe zum Ziel
-- Zielradius auf der Karte
-- akustisches Signal bei Zielnähe
-- dynamische Pieptöne im Nahbereich
-- automatische Kartenvergrößerung im Nahbereich
-- große Restdistanzanzeige unter 5 m
-- Ziel speichern im Browser
-- bevorzugte Richtungsbestimmung über GPS-Bewegung
-- Kompass als Fallback
-- Senden des aktuellen Fundorts an eine Google Form
-- Weiterleitung der Daten in ein Google Sheet
-- PWA-Unterstützung für Installation auf dem Startbildschirm
-- Offline-App-Shell per Service Worker
-
-## Aufbau der Oberfläche
-
-Die App ist in vier Bereiche aufgeteilt:
-
-1. **Suche vorbereiten**
-2. **Navigation**
-3. **Karte**
-4. **Suche beenden**
+- **Splash Screen beim Start** mit Logo aus `icons/icon-512.png`
+- **QR-Code-Scan** über die Rückkamera des Smartphones
+- Unterstützung für QR-Codes im DJI-Pilot-2-Format wie:
+  - `https://maps.google.com/?q=47.4614,7.9123`
+- **Zielerkennung aus QR-Code** und Speicherung des letzten Ziels im Browser
+- **Navigation per Pfeil**, wobei die Pfeilspitze zum Fundort zeigt
+- **Stabilisierte Richtungsanzeige** durch geglätteten Kompass und GPS-Bewegungsrichtung
+- **Rote Zielmarkierung** und **blaue Benutzerposition** auf der Karte
+- **Automatischer Nahbereichsmodus**:
+  - unter 5 m zusätzliche Distanzanzeige
+  - unter 2 m größere Karte und maximal sinnvoller Zoom abhängig von GPS-Genauigkeit
+- **Stabiler Nahzoom** ohne ständiges Rein-/Rauszoomen
+- **Akustische Annäherungssignale** im Nahbereich
+- **Fundort senden** an ein Google Form
+- **Suche beenden** nach dem Senden des Fundorts
+- **Offline-Unterstützung** über Service Worker
 
 ## Bedienung
 
-### 1. Suche vorbereiten
+1. App starten
+2. QR-Code mit **QR scannen** einlesen
+3. Mit **Suche starten** Standort und Kompass aktivieren
+4. Dem Pfeil folgen – **die Pfeilspitze zeigt zum Fundort**
+5. Im Nahbereich die Karte verwenden:
+   - **blauer Marker** = eigene Position
+   - **roter Marker** = Ziel / Fundort
+6. Am Fundort **Fundort senden** drücken
+   - der Standort wird an das Google Form gesendet
+   - die Suche wird beendet
 
-Im Bereich **Suche vorbereiten** stehen zwei Buttons zur Verfügung:
+## QR-Code-Format
 
-- **QR scannen**
-- **Suche starten**
-
-#### QR scannen
-Mit **QR scannen** wird die Kamera geöffnet, um einen QR-Code mit Zielkoordinaten einzulesen.
-
-Unterstützte Formate:
-
-```text
-47.3769,8.5417
-47.3769;8.5417
-geo:47.3769,8.5417
-```
-
-#### Suche starten
-Mit **Suche starten** versucht die App gleichzeitig:
-
-- den **Standort** des Geräts zu starten
-- den **Kompass / Richtungssensor** freizugeben
-
-Dadurch wird die Navigation vorbereitet.
-
----
-
-### 2. Navigation
-
-Die Navigation zeigt:
-
-- einen großen Richtungspfeil
-- die Distanz zum Ziel
-- die Zielkoordinaten
-
-#### Richtungslogik
-Die App verwendet bevorzugt die **Bewegungsrichtung aus GPS-Positionen**.
-
-Das bedeutet:
-- wenn du dich bewegst, wird die Richtung aus den letzten Positionsänderungen berechnet
-- wenn noch keine verlässliche Bewegungsrichtung vorliegt, wird der **Kompass** als Fallback verwendet
-
----
-
-### 3. Nahbereichsmodus
-
-Für die letzten Meter besitzt die App einen zusätzlichen **Nahbereichsmodus**.
-
-#### Unter 10 Metern
-Wenn du näher als **10 m** am Ziel bist:
-
-- die Karte zoomt automatisch stärker hinein
-- zusätzliche Pieptöne werden abgespielt
-- die Pieptöne werden schneller, je näher du kommst
-
-#### Unter 5 Metern
-Wenn du näher als **5 m** am Ziel bist:
-
-- erscheint eine große zusätzliche Anzeige
-- dort wird die Restdistanz prominent dargestellt, zum Beispiel:
+Aktuell wird das von **DJI Pilot 2** verwendete Format unterstützt:
 
 ```text
-Noch 4.3 m
-Noch 2.1 m
-Noch 0.9 m
+https://maps.google.com/?q=47.4614,7.9123
 ```
 
-#### Zielnähe
-Zusätzlich gibt es bereits vorhandene Signale:
-- bei ca. **10 m** erste Zielnähe-Signale
-- bei ca. **3 m** ein deutliches Ziel-Erreicht-Signal
+Die App extrahiert daraus automatisch Breitengrad und Längengrad.
 
-Der Nahbereichsmodus soll helfen, den Fundort im letzten Meterbereich schneller und genauer zu finden.
+## Navigation
 
----
+Die Navigation kombiniert zwei Richtungsquellen:
 
-### 4. Karte
+- **GPS-Bewegungsrichtung**, wenn genügend Bewegung vorhanden ist
+- **Kompass**, wenn keine stabile Bewegungsrichtung vorliegt
 
-Die Karte zeigt:
+Zur Beruhigung des Pfeils werden:
 
-- den Zielpunkt
-- die aktuelle Position
-- den Zielradius
-- eine Linie zwischen aktueller Position und Ziel
+- Winkel geglättet
+- kleine Richtungsänderungen ignoriert
+- Quellenwechsel zwischen GPS und Kompass verzögert
 
-Mit dem Button **Auf Ziel zentrieren** wird die Karte neu ausgerichtet.
+## Kartenverhalten
 
-Im Nahbereich zoomt die Karte zusätzlich automatisch näher an Ziel und aktuelle Position heran.
-
----
-
-### 5. Suche beenden
-
-Im Bereich **Suche beenden** steht der Button:
-
-- **Fundort senden**
-
-Mit diesem Button wird die **aktuelle GPS-Position** an eine Google Form gesendet.
-
-Gesendet werden:
-- aktuelles Datum
-- aktuelle Latitude
-- aktuelle Longitude
-
-Die Google Form kann mit einem Google Sheet verbunden sein, sodass der Fundort dort automatisch gespeichert wird.
-
-## Google Forms Anbindung
-
-Die App verwendet eine Google Form als Empfänger für den Fundort.
-
-Verwendete Felder:
-
-- Datum → `entry.2133523640`
-- Latitude → `entry.1056871652`
-- Longitude → `entry.1495036116`
-
-Die Daten werden an diese URL gesendet:
-
-```text
-https://docs.google.com/forms/d/e/1FAIpQLScoDXJmznfCCSkOtds7VLY38zztmyrw1cgU2iSgJPtcAc1H9g/formResponse
-```
-
-> Wichtig: Wenn sich die Feld-IDs in der Google Form ändern, muss auch die App angepasst werden.
-
-## Voraussetzungen
-
-Für Kamera, GPS, Kompass und Service Worker sollte die App über einen Webserver laufen.
-
-Empfohlen:
-- GitHub Pages
-- lokaler Testserver
-- HTTPS
-
-Wichtige Hinweise:
-- Kamera und Standort funktionieren auf mobilen Browsern meist nur zuverlässig über **HTTPS**
-- auf iPhones muss der Orientierungssensor oft zusätzlich freigegeben werden
-- auf Android kann der Kompass je nach Browser direkt funktionieren oder vom System abhängen
-
-## Lokaler Start
-
-### Mit Python
-
-```bash
-python -m http.server 8080
-```
-
-Danach im Browser öffnen:
-
-```text
-http://localhost:8080
-```
-
-## Nutzung auf dem Smartphone
-
-1. App öffnen
-2. **QR scannen**
-3. Kamerazugriff erlauben
-4. Zielkoordinaten scannen
-5. **Suche starten**
-6. Standortfreigabe erlauben
-7. falls nötig Sensorfreigabe bestätigen
-8. einige Meter gehen
-9. dem Pfeil folgen
-10. im Nahbereich auf Distanzanzeige, Karte und Pieptöne achten
-11. am Fundort **Fundort senden**
-
-## Installation auf dem Smartphone
-
-### Android / Chrome
-- Seite öffnen
-- Browser-Menü öffnen
-- **App installieren** oder **Zum Startbildschirm hinzufügen**
-
-### iPhone / Safari
-- Seite öffnen
-- Teilen-Menü öffnen
-- **Zum Home-Bildschirm**
-
-## App-Icon / Logo
-
-Damit beim Speichern auf dem Startbildschirm und im Header dein Logo angezeigt wird, müssen diese Dateien vorhanden sein:
-
-```text
-icons/icon-192.png
-icons/icon-512.png
-```
+- Ziel wird **rot** dargestellt
+- eigene Position wird **blau** dargestellt
+- zwischen Benutzer und Ziel wird eine Linie angezeigt
+- unter **2 m** wird ein Nahmodus aktiviert:
+  - Karte wird größer
+  - Zoom richtet sich nach der GPS-Genauigkeit
+  - der Zoom bleibt stabil und pumpt nicht dauernd
 
 ## Projektstruktur
 
-```text
-Rehkitz-Finder/
-├─ index.html
-├─ style.css
-├─ app.js
-├─ manifest.webmanifest
-├─ service-worker.js
-├─ README.md
-└─ icons/
-   ├─ icon-192.png
-   └─ icon-512.png
+- `index.html` – Oberfläche der App
+- `style.css` – Layout, Navigation, Splash Screen und Marker-Styling
+- `app.js` – Scanner, Navigation, Karte, QR-Parsing und Formularübermittlung
+- `service-worker.js` – Offline-Unterstützung
+- `manifest.webmanifest` – PWA-Metadaten
+- `icons/` – App-Icons und Splash-Logo
+
+## Voraussetzungen
+
+- modernes Smartphone mit Browser
+- HTTPS-Betrieb für Kamera-, Standort- und Kompasszugriff
+- Kamerazugriff für den QR-Scanner
+- Standortfreigabe für die Navigation
+- auf iOS ggf. zusätzliche Kompassfreigabe
+
+## Hinweise zum Einsatz
+
+- Der QR-Code sollte ruhig und möglichst formatfüllend ins Kamerabild gehalten werden.
+- Bei schwacher GPS-Genauigkeit kann die Position im Nahbereich springen.
+- Die Karte zeigt in den letzten Metern meist verlässlicher als der Kompass allein.
+- Wenn der Fundort gesendet wurde, ist die Suche beendet und muss für einen neuen Durchlauf erneut gestartet werden.
+
+## Konfiguration
+
+### Splash Screen Dauer
+
+In `app.js`:
+
+```javascript
+const SPLASH_MIN_DURATION_MS = 4000;
 ```
 
-## Offline-Verhalten
+- `4000` = 4 Sekunden
+- `5000` = 5 Sekunden
 
-Die App nutzt einen Service Worker, um die App-Shell offline verfügbar zu machen.
+### Google Form Ziel
 
-Wichtig:
-- externe Bibliotheken und Kartendaten werden weiterhin über das Netz geladen
-- ohne Internet kann die Karte eingeschränkt oder leer sein
-- lokale Dateien der App bleiben zwischengespeichert verfügbar
-- das Senden an Google Forms benötigt eine Internetverbindung
+In `app.js`:
 
-## Grenzen der Genauigkeit
+```javascript
+const GOOGLE_FORM_ACTION_URL = "...";
+const GOOGLE_FORM_FIELDS = {
+  date: "...",
+  latitude: "...",
+  longitude: "...",
+};
+```
 
-- Die Genauigkeit hängt stark vom GPS-Empfang ab
-- Im Wald, bei dichter Bewölkung oder nahe an Gebäuden kann die Position ungenauer werden
-- Browser-Kompasswerte können je nach Gerät springen oder driften
-- Im Stillstand ist die Richtung oft weniger zuverlässig als beim Gehen
-- Auch im Nahbereich ist GPS nicht zentimetergenau
-- Die App ist als praktische Navigationshilfe gedacht, nicht als vermessungstechnisches Präzisionswerkzeug
+Hier können Formular-URL und Feld-IDs angepasst werden.
 
-## Empfohlene Nutzung im Feld
+## Technische Details
 
-Für die beste Richtungsanzeige:
+- QR-Scan mit `html5-qrcode`
+- Karte mit `Leaflet`
+- Standort über `navigator.geolocation.watchPosition`
+- Richtung über `deviceorientation` / `webkitCompassHeading`
+- Zielspeicherung via `localStorage`
 
-1. Ziel per QR-Code scannen
-2. Suche starten
-3. einige Meter in gerader Linie gehen
-4. dem Pfeil folgen
-5. im Bereich unter 10 m auf die schnelleren Pieptöne achten
-6. unter 5 m die große Restdistanzanzeige nutzen
-7. Karte im Nahbereich beobachten
-8. am Fundort **Fundort senden**
+## Lizenz / Nutzung
 
-So ist die Richtungsanzeige meist stabiler und der Fundort kann direkt dokumentiert werden.
+Dieses Projekt ist für den praktischen Einsatz zur Navigation zu einem Fundort ausgelegt und kann an die eigenen betrieblichen Abläufe angepasst werden.
